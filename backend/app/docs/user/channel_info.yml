@@ -1,0 +1,15 @@
+获取频道页信息
+---
+tags:
+  - 用户模块 (User)
+parameters:
+  - name: author_id
+    in: query
+    required: true
+    type: integer
+  - name: visitor_id
+    in: query
+    type: integer
+responses:
+  200:
+    description: 返回频道信息、统计数据和视频列表

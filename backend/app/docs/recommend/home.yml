@@ -1,0 +1,26 @@
+获取首页推荐视频
+---
+tags:
+  - 推荐模块 (Recommend)
+parameters:
+  - name: user_id
+    in: query
+    type: integer
+    description: 当前登录用户的ID。如果传入，将返回基于 ItemCF 算法的个性化推荐；如果不传，返回基于热度的随机推荐。
+responses:
+  200:
+    description: 成功返回推荐视频列表
+    schema:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        msg:
+          type: string
+          example: "基于您的兴趣推荐"
+        data:
+          type: array
+          items:
+            type: object
+            description: 视频对象

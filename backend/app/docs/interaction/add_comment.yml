@@ -1,0 +1,27 @@
+发表评论或回复
+---
+tags:
+  - 互动模块 (Interaction)
+parameters:
+  - name: body
+    in: body
+    required: true
+    schema:
+      type: object
+      required:
+        - user_id
+        - video_id
+        - content
+      properties:
+        user_id:
+          type: integer
+        video_id:
+          type: integer
+        content:
+          type: string
+        parent_id:
+          type: integer
+          description: 父评论ID (如果是回复)
+responses:
+  200:
+    description: 评论成功

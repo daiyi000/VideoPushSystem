@@ -1,0 +1,12 @@
+获取用户管理列表
+---
+tags:
+  - 后台管理 (Admin)
+parameters:
+  - name: q
+    in: query
+    type: string
+    description: 搜索关键词 (用户名或邮箱)
+responses:
+  200:
+    description: 成功返回用户列表

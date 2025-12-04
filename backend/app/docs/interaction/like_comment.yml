@@ -1,0 +1,21 @@
+评论点赞/取消点赞
+---
+tags:
+  - 互动模块 (Interaction)
+parameters:
+  - name: body
+    in: body
+    required: true
+    schema:
+      type: object
+      required:
+        - user_id
+        - comment_id
+      properties:
+        user_id:
+          type: integer
+        comment_id:
+          type: integer
+responses:
+  200:
+    description: 操作成功，返回最新点赞数和动作(like/unlike)

@@ -1,0 +1,31 @@
+发送弹幕
+---
+tags:
+  - 互动模块 (Interaction)
+parameters:
+  - name: body
+    in: body
+    required: true
+    schema:
+      type: object
+      required:
+        - user_id
+        - video_id
+        - text
+        - time
+      properties:
+        user_id:
+          type: integer
+        video_id:
+          type: integer
+        text:
+          type: string
+        time:
+          type: number
+          description: 弹幕时间点 (秒)
+        color:
+          type: string
+          description: 弹幕颜色 (Hex或RGBA)
+responses:
+  200:
+    description: 发送成功

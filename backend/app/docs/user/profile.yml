@@ -1,0 +1,24 @@
+获取或修改个人资料
+---
+tags:
+  - 用户模块 (User)
+parameters:
+  - name: user_id
+    in: query
+    type: integer
+    description: (GET) 用户ID
+  - name: body
+    in: body
+    description: (POST) 修改资料
+    schema:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        username:
+          type: string
+        description:
+          type: string
+responses:
+  200:
+    description: 成功

@@ -1,0 +1,41 @@
+用户登录
+---
+tags:
+  - 认证模块 (Auth)
+parameters:
+  - name: body
+    in: body
+    required: true
+    schema:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          example: "admin@test.com"
+        password:
+          type: string
+          example: "123456"
+responses:
+  200:
+    description: 登录成功，返回 Token
+    schema:
+      type: object
+      properties:
+        code:
+          type: integer
+        msg:
+          type: string
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+            user:
+              type: object
+  401:
+    description: 账号或密码错误
+  403:
+    description: 账号被封禁

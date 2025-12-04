@@ -1,0 +1,16 @@
+获取视频列表
+---
+tags:
+  - 视频模块 (Video)
+parameters:
+  - name: category
+    in: query
+    type: string
+    description: 分类筛选
+  - name: q
+    in: query
+    type: string
+    description: 搜索关键词
+responses:
+  200:
+    description: 成功返回列表

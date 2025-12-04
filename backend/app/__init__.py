@@ -3,16 +3,28 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_mail import Mail
 from .config import Config
+from flasgger import Swagger
 
 db = SQLAlchemy()
 mail = Mail()
+swagger = Swagger()
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     
+    # Swagger 配置
+    app.config['SWAGGER'] = {
+        'title': 'VideoHub API',
+        'uiversion': 3,
+        'version': '1.0.0',
+        'description': '基于 Flask + Vue 的智能视频推送系统 API 文档',
+        'specs_route': '/apidocs/' # 访问文档的路由
+    }
+    
     db.init_app(app)
     mail.init_app(app)
+    swagger.init_app(app) # 【新增】绑定 App
     
     # 允许跨域
     CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)

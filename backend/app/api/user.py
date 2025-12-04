@@ -4,6 +4,10 @@ from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash
 from ..models import User, Video, ActionLog, Follow, Playlist, db
+from flasgger import swag_from
+
+def get_doc_path(filename):
+    return os.path.join(os.path.dirname(__file__), '../docs/user', filename)
 
 user_bp = Blueprint('user', __name__)
 
@@ -51,6 +55,7 @@ def upload_banner():
 
 # 3. 个人资料 (获取与修改)
 @user_bp.route('/profile', methods=['GET', 'POST'])
+@swag_from(get_doc_path('profile.yml'))
 def profile():
     user_id = None
     if request.method == 'GET':
@@ -91,6 +96,7 @@ def profile():
 
 # 4. 关注/取关
 @user_bp.route('/follow', methods=['POST'])
+@swag_from(get_doc_path('follow.yml'))
 def toggle_follow():
     data = request.get_json()
     follower_id = data.get('follower_id')
@@ -117,6 +123,7 @@ def toggle_follow():
 
 # 5. 获取频道信息 (包含视频、粉丝数、播放列表)
 @user_bp.route('/channel_info', methods=['GET'])
+@swag_from(get_doc_path('channel_info.yml'))
 def get_channel_info():
     author_id = request.args.get('author_id')
     visitor_id = request.args.get('visitor_id')

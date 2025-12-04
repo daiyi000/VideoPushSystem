@@ -1,0 +1,26 @@
+视频上传
+---
+tags:
+  - 视频模块 (Video)
+consumes:
+  - multipart/form-data
+parameters:
+  - name: title
+    in: formData
+    required: true
+    type: string
+  - name: category
+    in: formData
+    required: true
+    type: string
+    enum: ['科技', '生活', '娱乐', '教育', '电影']
+  - name: file
+    in: formData
+    required: true
+    type: file
+  - name: uploader_id
+    in: formData
+    type: integer
+responses:
+  200:
+    description: 上传成功

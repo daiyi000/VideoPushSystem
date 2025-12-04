@@ -1,10 +1,16 @@
+import os
+from flasgger import swag_from
 from flask import Blueprint, request, jsonify
 from ..models import Playlist, Video, db
 
 playlist_bp = Blueprint('playlist', __name__)
 
+def get_doc_path(filename):
+    return os.path.join(os.path.dirname(__file__), '../docs/playlist', filename)
+
 # 创建与删除接口 (保持不变)
 @playlist_bp.route('/create', methods=['POST'])
+@swag_from(get_doc_path('create.yml'))
 def create_playlist():
     data = request.get_json()
     pl = Playlist(title=data.get('title'), user_id=data.get('user_id'), description=data.get('description', ''))

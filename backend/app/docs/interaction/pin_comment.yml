@@ -1,0 +1,24 @@
+置顶/取消置顶评论
+---
+tags:
+  - 互动模块 (Interaction)
+parameters:
+  - name: body
+    in: body
+    required: true
+    schema:
+      type: object
+      required:
+        - user_id
+        - comment_id
+      properties:
+        user_id:
+          type: integer
+          description: 操作者ID (必须是视频作者)
+        comment_id:
+          type: integer
+responses:
+  200:
+    description: 操作成功
+  403:
+    description: 无权操作

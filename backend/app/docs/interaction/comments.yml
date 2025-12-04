@@ -1,0 +1,22 @@
+获取视频评论列表
+---
+tags:
+  - 互动模块 (Interaction)
+parameters:
+  - name: video_id
+    in: query
+    required: true
+    type: integer
+    description: 视频ID
+  - name: user_id
+    in: query
+    type: integer
+    description: 当前用户ID (用于判断是否点赞过)
+  - name: sort_by
+    in: query
+    type: string
+    enum: ['hot', 'new']
+    description: 排序方式 (默认热度)
+responses:
+  200:
+    description: 成功返回评论列表 (含嵌套回复)

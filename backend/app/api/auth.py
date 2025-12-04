@@ -3,13 +3,14 @@ import datetime
 import random
 from flask import Blueprint, request, jsonify, current_app
 from flask_mail import Message
+from flasgger import swag_from # 引入 swag_from 装饰器
 from .. import mail 
 from ..models import User, EmailCaptcha, db
 
 auth_bp = Blueprint('auth', __name__)
 
-# 1. 发送验证码接口
 @auth_bp.route('/send_code', methods=['POST'])
+@swag_from('../docs/auth/send_code.yml')
 def send_code():
     data = request.get_json()
     email = data.get('email')
@@ -17,7 +18,6 @@ def send_code():
     if not email:
         return jsonify({'code': 400, 'msg': '邮箱不能为空'}), 400
         
-    # 生成 6 位随机验证码
     code = str(random.randint(100000, 999999))
     
     try:
@@ -34,8 +34,8 @@ def send_code():
         print(e)
         return jsonify({'code': 500, 'msg': '邮件发送失败，请检查邮箱地址或联系管理员'}), 500
 
-# 2. 注册接口
 @auth_bp.route('/register', methods=['POST'])
+@swag_from('../docs/auth/register.yml')
 def register():
     data = request.get_json()
     email = data.get('email')
@@ -64,8 +64,8 @@ def register():
     
     return jsonify({'code': 200, 'msg': '注册成功'})
 
-# 3. 登录接口 (已修复封禁逻辑)
 @auth_bp.route('/login', methods=['POST'])
+@swag_from('../docs/auth/login.yml')
 def login():
     data = request.get_json()
     email = data.get('email')
@@ -74,7 +74,6 @@ def login():
     user = User.query.filter_by(email=email).first()
     
     if user and user.check_password(password):
-        # 【核心修复】检查是否被封禁
         if user.is_banned:
             return jsonify({'code': 403, 'msg': '该账号已被封禁，请联系管理员申诉'}), 403
 

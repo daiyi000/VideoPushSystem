@@ -1,0 +1,7 @@
+后台数据大屏统计
+---
+tags:
+  - 后台管理 (Admin)
+responses:
+  200:
+    description: 返回各类统计图表数据

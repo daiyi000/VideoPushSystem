@@ -1,12 +1,18 @@
+import os
 from flask import Blueprint, request, jsonify
 from ..models import Comment, Danmaku, User, Video, db, ActionLog, CommentLike
 from datetime import datetime
+from flasgger import swag_from
 
 interaction_bp = Blueprint('interaction', __name__)
+
+def get_doc_path(filename):
+    return os.path.join(os.path.dirname(__file__), '../docs/interaction', filename)
 
 # --- 评论功能 (升级版) ---
 
 @interaction_bp.route('/comments', methods=['GET'])
+@swag_from(get_doc_path('comments.yml'))
 def get_comments():
     video_id = request.args.get('video_id')
     user_id = request.args.get('user_id', type=int) # 获取当前查看的用户ID
@@ -54,6 +60,7 @@ def get_comments():
     return jsonify({'code': 200, 'data': data})
 
 @interaction_bp.route('/comment/add', methods=['POST'])
+@swag_from(get_doc_path('add_comment.yml'))
 def add_comment():
     data = request.get_json()
     new_comment = Comment(
@@ -68,6 +75,7 @@ def add_comment():
 
 # 【核心修改】评论点赞 (切换模式)
 @interaction_bp.route('/comment/like', methods=['POST'])
+@swag_from(get_doc_path('like_comment.yml'))
 def like_comment():
     data = request.get_json()
     comment_id = data.get('comment_id')
@@ -101,6 +109,7 @@ def like_comment():
 
 # 置顶评论
 @interaction_bp.route('/comment/pin', methods=['POST'])
+@swag_from(get_doc_path('pin_comment.yml'))
 def pin_comment():
     data = request.get_json()
     comment_id = data.get('comment_id')
@@ -126,6 +135,7 @@ def pin_comment():
 
 # --- 弹幕 & 状态 --- (保持不变)
 @interaction_bp.route('/danmaku', methods=['GET'])
+@swag_from(get_doc_path('danmaku.yml'))
 def get_danmaku():
     video_id = request.args.get('video_id')
     danmakus = Danmaku.query.filter_by(video_id=video_id).all()
@@ -133,6 +143,7 @@ def get_danmaku():
     return jsonify({'code': 200, 'data': data})
 
 @interaction_bp.route('/danmaku/send', methods=['POST'])
+@swag_from(get_doc_path('send_danmaku.yml'))
 def send_danmaku():
     data = request.get_json()
     new_dm = Danmaku(
@@ -144,6 +155,7 @@ def send_danmaku():
     return jsonify({'code': 200, 'msg': '发送成功'})
 
 @interaction_bp.route('/check_status', methods=['GET'])
+@swag_from(get_doc_path('check_status.yml'))
 def check_status():
     user_id = request.args.get('user_id')
     video_id = request.args.get('video_id')

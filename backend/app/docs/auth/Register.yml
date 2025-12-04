@@ -1,0 +1,27 @@
+用户注册
+---
+tags:
+  - 认证模块 (Auth)
+parameters:
+  - name: body
+    in: body
+    required: true
+    schema:
+      type: object
+      required:
+        - email
+        - password
+        - code
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        code:
+          type: string
+          description: 邮箱收到的6位验证码
+responses:
+  200:
+    description: 注册成功
+  400:
+    description: 验证码错误或邮箱已注册

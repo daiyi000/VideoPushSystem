@@ -1,0 +1,24 @@
+视频审核操作
+---
+tags:
+  - 后台管理 (Admin)
+parameters:
+  - name: body
+    in: body
+    schema:
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: integer
+          description: 视频ID
+        status:
+          type: integer
+          description: 目标状态 (1=通过, 2=下架)
+responses:
+  200:
+    description: 操作成功
+  404:
+    description: 视频不存在

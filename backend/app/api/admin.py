@@ -1,12 +1,17 @@
+import os
+from flasgger import swag_from
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func
 from datetime import datetime, timedelta
 from ..models import User, Video, ActionLog, db
 
 admin_bp = Blueprint('admin', __name__)
+def get_doc_path(filename):
+    return os.path.join(os.path.dirname(__file__), '../docs/admin', filename)
 
 # 1. 仪表盘数据统计 (Dashboard Stats)
 @admin_bp.route('/stats', methods=['GET'])
+@swag_from(get_doc_path('stats.yml'))
 def get_stats():
     # A. 基础计数
     total_users = User.query.count()
@@ -54,6 +59,7 @@ def get_stats():
 
 # 2. 视频管理 (列表 + 搜索 + 筛选)
 @admin_bp.route('/videos', methods=['GET'])
+@swag_from(get_doc_path('videos.yml'))
 def get_admin_videos():
     status = request.args.get('status')
     q = request.args.get('q')
@@ -69,6 +75,7 @@ def get_admin_videos():
 
 # 3. 视频审核/操作 (通过、驳回/下架、修改)
 @admin_bp.route('/video/audit', methods=['POST'])
+@swag_from(get_doc_path('audit_video.yml'))
 def audit_video():
     data = request.get_json()
     video_id = data.get('id')
@@ -82,6 +89,7 @@ def audit_video():
     return jsonify({'code': 200, 'msg': '操作成功'})
 
 @admin_bp.route('/video/delete', methods=['POST'])
+@swag_from(get_doc_path('delete_video.yml'))
 def delete_video_admin():
     data = request.get_json()
     video = Video.query.get(data.get('id'))
@@ -92,6 +100,7 @@ def delete_video_admin():
 
 # 4. 用户管理 (列表 + 封禁)
 @admin_bp.route('/users', methods=['GET'])
+@swag_from(get_doc_path('users.yml'))
 def get_admin_users():
     q = request.args.get('q')
     query = User.query
@@ -102,6 +111,7 @@ def get_admin_users():
     return jsonify({'code': 200, 'data': [u.to_dict() for u in users]})
 
 @admin_bp.route('/user/ban', methods=['POST'])
+@swag_from(get_doc_path('ban_user.yml'))
 def ban_user():
     data = request.get_json()
     user = User.query.get(data.get('id'))

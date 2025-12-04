@@ -5,8 +5,12 @@ import jwt  # 【新增】需要解析Token
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 from ..models import Video, User, ActionLog, db
+from flasgger import swag_from
 
 video_bp = Blueprint('video', __name__)
+
+def get_doc_path(filename):
+    return os.path.join(os.path.dirname(__file__), '../docs/video', filename)
 
 ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'png', 'jpg', 'jpeg'}
 
@@ -25,6 +29,7 @@ def generate_thumbnail(video_path, thumbnail_path):
 
 # 1. 上传接口
 @video_bp.route('/upload', methods=['POST'])
+@swag_from(get_doc_path('upload.yml'))
 def upload_video():
     if 'file' not in request.files: return jsonify({'code': 400, 'msg': '没有文件'}), 400
     file = request.files['file']
@@ -71,6 +76,7 @@ def upload_video():
 
 # 2. 获取列表 (仅返回已发布的视频)
 @video_bp.route('/list', methods=['GET'])
+@swag_from(get_doc_path('list.yml'))
 def get_video_list():
     category = request.args.get('category')
     search_query = request.args.get('q')
@@ -89,6 +95,7 @@ def get_video_list():
 
 # 3. 获取详情 (权限控制)
 @video_bp.route('/<int:video_id>', methods=['GET'])
+@swag_from(get_doc_path('detail.yml'))
 def get_video_detail(video_id):
     video = Video.query.get(video_id)
     if not video:
@@ -143,6 +150,7 @@ def delete_video(video_id):
 
 # 5. 交互
 @video_bp.route('/action', methods=['POST'])
+@swag_from(get_doc_path('action.yml'))
 def video_action():
     data = request.get_json()
     user_id = data.get('user_id')

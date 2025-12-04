@@ -1,0 +1,16 @@
+检查视频点赞和收藏状态
+---
+tags:
+  - 互动模块 (Interaction)
+parameters:
+  - name: user_id
+    in: query
+    required: true
+    type: integer
+  - name: video_id
+    in: query
+    required: true
+    type: integer
+responses:
+  200:
+    description: 返回 is_fav 和 is_like 状态

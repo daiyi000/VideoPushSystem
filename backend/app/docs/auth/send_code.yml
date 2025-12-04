@@ -1,0 +1,23 @@
+发送邮箱验证码
+---
+tags:
+  - 认证模块 (Auth)
+parameters:
+  - name: body
+    in: body
+    required: true
+    schema:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          example: "test@example.com"
+responses:
+  200:
+    description: 发送成功
+  400:
+    description: 邮箱为空
+  500:
+    description: 邮件发送失败

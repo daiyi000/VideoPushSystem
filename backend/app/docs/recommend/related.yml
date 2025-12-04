@@ -1,0 +1,24 @@
+获取详情页相关推荐 (猜你喜欢)
+---
+tags:
+  - 推荐模块 (Recommend)
+parameters:
+  - name: video_id
+    in: path
+    required: true
+    type: integer
+    description: 当前正在播放的视频ID
+responses:
+  200:
+    description: 成功返回相似视频列表
+    schema:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        data:
+          type: array
+          items:
+            type: object
+            description: 视频对象
