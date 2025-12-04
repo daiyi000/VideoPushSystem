@@ -31,7 +31,13 @@
           <template #dropdown>
             <el-dropdown-menu>
               <div style="padding:10px;text-align:center;font-weight:bold">{{ userStore.userInfo.username }}</div>
-              <el-dropdown-item command="profile">个人中心</el-dropdown-item>
+              
+              <!-- 【新增】管理员入口 (仅管理员可见) -->
+              <el-dropdown-item v-if="userStore.userInfo.is_admin" command="admin" divided style="color: #E6A23C; font-weight: bold;">
+                <el-icon><Monitor /></el-icon> 后台管理
+              </el-dropdown-item>
+
+              <el-dropdown-item command="profile" :divided="!userStore.userInfo.is_admin">个人中心</el-dropdown-item>
               <el-dropdown-item command="channel">我的频道</el-dropdown-item>
               <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
             </el-dropdown-menu>
@@ -41,9 +47,8 @@
     </header>
 
     <div class="app-body">
-      <!-- 2. 侧边栏 (模仿 YouTube) -->
+      <!-- 2. 侧边栏 -->
       <aside class="app-sidebar" :class="{ 'collapsed': isCollapsed }">
-        <!-- 顶部导航 -->
         <div class="nav-section">
           <div class="nav-item" :class="{ active: $route.path === '/' }" @click="$router.push('/')">
             <el-icon><HomeFilled /></el-icon>
@@ -57,7 +62,6 @@
 
         <el-divider style="margin: 10px 0" />
 
-        <!-- 关注列表 -->
         <div class="nav-section" v-if="userStore.token">
           <div class="section-title" v-if="!isCollapsed">订阅内容</div>
           <div v-for="user in followingList" :key="user.id" class="nav-item user-item" @click="$router.push(`/channel/${user.id}`)">
@@ -72,7 +76,7 @@
         </div>
       </aside>
 
-      <!-- 3. 主内容区 (路由出口) -->
+      <!-- 3. 主内容区 -->
       <main class="app-content">
         <router-view />
       </main>
@@ -84,13 +88,13 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '../store/user';
-import request from '../api/request'; // 简单起见直接用 request
-import { Menu, VideoPlay, Search, VideoCamera, HomeFilled, Collection } from '@element-plus/icons-vue';
+import request from '../api/request';
+import { Menu, VideoPlay, Search, VideoCamera, HomeFilled, Collection, Monitor } from '@element-plus/icons-vue';
 
 const router = useRouter();
 const userStore = useUserStore();
 
-const isCollapsed = ref(false); // 侧边栏折叠状态
+const isCollapsed = ref(false);
 const keyword = ref('');
 const followingList = ref([]);
 
@@ -99,8 +103,6 @@ const toggleSidebar = () => {
 };
 
 const handleSearch = () => {
-  // 这里可以通过 EventBus 或者 Query 参数传给 Home，或者直接跳转
-  // 简单做法：带参跳回首页
   router.push(`/?q=${keyword.value}&t=${Date.now()}`); 
 };
 
@@ -108,9 +110,10 @@ const handleCommand = (cmd) => {
   if (cmd === 'logout') { userStore.logout(); router.push('/login'); }
   if (cmd === 'profile') router.push('/profile');
   if (cmd === 'channel') router.push(`/channel/${userStore.userInfo.id}`);
+  // 【新增】跳转后台
+  if (cmd === 'admin') router.push('/admin/dashboard');
 };
 
-// 获取关注列表
 const fetchFollowing = async () => {
   if (!userStore.token) return;
   try {
@@ -160,7 +163,7 @@ onMounted(() => {
 .nav-item .el-icon { font-size: 24px; margin-right: 20px; }
 .nav-item span { font-size: 14px; white-space: nowrap; overflow: hidden; }
 
-/* 折叠后的样式覆盖 */
+/* 折叠后样式 */
 .app-sidebar.collapsed .nav-item { flex-direction: column; justify-content: center; height: 70px; padding: 0; gap: 5px; }
 .app-sidebar.collapsed .nav-item .el-icon { margin-right: 0; margin-bottom: 4px; }
 .app-sidebar.collapsed .nav-item span { font-size: 10px; }
@@ -175,6 +178,5 @@ onMounted(() => {
 .username { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty-tip, .login-tip { padding: 12px; font-size: 13px; color: #606060; }
 
-/* Content */
 .app-content { flex: 1; overflow-y: auto; background: #f9f9f9; padding: 24px; }
 </style>

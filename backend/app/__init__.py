@@ -40,6 +40,10 @@ def create_app():
     #6. 播放列表
     from .api.playlist import playlist_bp
     app.register_blueprint(playlist_bp, url_prefix='/api/playlist')
+
+    #注册后台管理蓝图
+    from .api.admin import admin_bp
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')
     
     with app.app_context():
         from . import models 

@@ -84,7 +84,7 @@
           <el-empty v-else description="该作者还没有相关视频" />
         </div>
 
-        <!-- B. 播放列表 (卡片样式升级) -->
+        <!-- B. 播放列表 -->
         <div v-if="activeTab === 'playlists'">
           <!-- 创建按钮 (仅自己可见) -->
           <div v-if="isOwner" style="margin-bottom: 20px;">
@@ -183,7 +183,7 @@
       </template>
     </el-dialog>
 
-    <!-- 弹窗 4: 查看播放列表详情 (模仿页面布局) -->
+    <!-- 弹窗 4: 查看播放列表详情 -->
     <el-dialog 
       v-model="viewPlaylistDialogVisible" 
       width="1000px" 
@@ -194,9 +194,7 @@
       <div class="yt-pl-layout">
         <!-- 左侧：播放列表信息卡片 -->
         <div class="yt-pl-sidebar" :style="{ backgroundImage: `url(${currentPlaylist?.cover_url})` }">
-           <!-- 背景模糊层 -->
            <div class="yt-pl-bg-blur"></div>
-           <!-- 内容层 -->
            <div class="yt-pl-content">
               <div class="yt-pl-cover-box">
                 <img :src="currentPlaylist?.cover_url" class="yt-pl-cover-img">
@@ -207,7 +205,6 @@
                 <span>{{ currentPlaylist?.count }}个视频</span> • <span>{{ currentPlaylist?.created_at }}更新</span>
               </div>
               
-              <!-- 操作按钮组 -->
               <div class="yt-pl-actions">
                  <el-button type="primary" round class="play-all-btn" v-if="currentPlaylistVideos.length > 0" @click="goToVideo(currentPlaylistVideos[0].id)">
                     <el-icon style="margin-right:5px"><VideoPlay /></el-icon> 播放全部
@@ -245,7 +242,7 @@
       </div>
     </el-dialog>
 
-    <!-- 弹窗 5: 选择视频加入列表 (仅主人可见) -->
+    <!-- 弹窗 5: 选择视频加入列表 -->
     <el-dialog v-model="addToPlVisible" title="选择视频加入列表" width="500px">
       <div class="mini-video-list">
         <div v-for="v in videoList" :key="v.id" class="mini-video-item" @click="addVideoToPl(v.id)">
@@ -273,7 +270,7 @@ const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
 
-const authorId = route.params.id;
+// 移除静态变量，改用计算属性或直接在函数中使用
 const author = ref({});
 const stats = ref({ fans: 0, is_following: false });
 const videoList = ref([]);
@@ -287,8 +284,8 @@ const searchQuery = ref('');
 const editDialogVisible = ref(false);
 const manageDialogVisible = ref(false);
 const playlistDialogVisible = ref(false);
-const viewPlaylistDialogVisible = ref(false); // 查看详情弹窗
-const addToPlVisible = ref(false); // 添加视频弹窗
+const viewPlaylistDialogVisible = ref(false);
+const addToPlVisible = ref(false);
 
 const editForm = ref({ username: '', avatar: '', banner: '', description: '' });
 const fileInput = ref(null);
@@ -299,7 +296,11 @@ const newPlaylistName = ref('');
 const currentPlaylist = ref(null);
 const currentPlaylistVideos = ref([]);
 
-const isOwner = computed(() => userStore.token && String(userStore.userInfo.id) === String(authorId));
+// 【修复点 1】isOwner 必须动态依赖 route.params.id
+const isOwner = computed(() => {
+  if (!userStore.token) return false;
+  return String(userStore.userInfo.id) === String(route.params.id);
+});
 
 const bannerStyle = computed(() => ({
   backgroundImage: author.value.banner ? `url(${author.value.banner})` : 'linear-gradient(90deg, #cc2b5e 0%, #753a88 100%)',
@@ -307,10 +308,12 @@ const bannerStyle = computed(() => ({
   backgroundPosition: 'center'
 }));
 
+// 【修复点 2】loadData 使用当前路由参数
 const loadData = async () => {
+  const currentAuthorId = route.params.id; // 获取当前 URL 上的 ID
   try {
     const res = await getChannelInfo({
-      author_id: authorId,
+      author_id: currentAuthorId,
       visitor_id: userStore.token ? userStore.userInfo.id : null,
       sort_by: sortBy.value,
       q: searchQuery.value
@@ -328,7 +331,7 @@ const loadData = async () => {
 const handleSubscribe = async () => {
   if (!userStore.token) return ElMessage.warning('请先登录');
   try {
-    const res = await toggleFollow({ follower_id: userStore.userInfo.id, followed_id: authorId });
+    const res = await toggleFollow({ follower_id: userStore.userInfo.id, followed_id: route.params.id });
     if (res.data.code === 200) {
       stats.value.is_following = res.data.is_following;
       stats.value.fans = res.data.fans_count;
@@ -337,57 +340,33 @@ const handleSubscribe = async () => {
   } catch (e) { ElMessage.error('操作失败'); }
 };
 
-// --- 播放列表逻辑 ---
+// ... 其他业务逻辑 (保持不变) ...
 const openPlaylistDialog = () => { newPlaylistName.value = ''; playlistDialogVisible.value = true; };
 const handleCreatePlaylist = async () => {
   if (!newPlaylistName.value) return;
   const res = await createPlaylist({ title: newPlaylistName.value, user_id: userStore.userInfo.id });
-  if (res.data.code === 200) {
-    ElMessage.success('创建成功');
-    loadData();
-    playlistDialogVisible.value = false;
-  }
+  if (res.data.code === 200) { ElMessage.success('创建成功'); loadData(); playlistDialogVisible.value = false; }
 };
 const handleDeletePlaylist = (id) => {
-  ElMessageBox.confirm('确定删除？', '提示').then(async () => {
-    await deletePlaylist(id);
-    loadData();
-  });
+  ElMessageBox.confirm('确定删除？', '提示').then(async () => { await deletePlaylist(id); loadData(); });
 };
-
-// 查看播放列表详情 (API请求)
 const handleViewPlaylist = async (pl) => {
   currentPlaylist.value = pl;
   try {
     const res = await getPlaylistVideos(pl.id);
-    if (res.data.code === 200) {
-      currentPlaylistVideos.value = res.data.data;
-      viewPlaylistDialogVisible.value = true;
-    }
-  } catch (e) {
-    ElMessage.error('获取列表失败');
-  }
+    if (res.data.code === 200) { currentPlaylistVideos.value = res.data.data; viewPlaylistDialogVisible.value = true; }
+  } catch (e) { ElMessage.error('获取列表失败'); }
 };
-
-const goToVideo = (vid) => {
-  router.push(`/video/${vid}`);
-};
-
-// 添加视频到列表
+const goToVideo = (vid) => { router.push(`/video/${vid}`); };
 const addVideoToPl = async (vid) => {
   const res = await addVideoToPlaylist({ playlist_id: currentPlaylist.value.id, video_id: vid });
   if (res.data.code === 200) {
-    ElMessage.success(res.data.msg);
-    addToPlVisible.value = false;
-    // 刷新当前弹窗里的视频列表
+    ElMessage.success(res.data.msg); addToPlVisible.value = false;
     const refreshRes = await getPlaylistVideos(currentPlaylist.value.id);
     currentPlaylistVideos.value = refreshRes.data.data;
-    // 刷新外面的计数
     loadData();
   }
 };
-
-// --- 编辑与管理 ---
 const openEditDialog = () => { editForm.value = { ...author.value }; editDialogVisible.value = true; };
 const triggerFileInput = () => fileInput.value.click();
 const triggerBannerInput = () => bannerInput.value.click();
@@ -396,11 +375,25 @@ const handleBannerUpload = async (e) => { const file = e.target.files[0]; if (!f
 const saveProfile = async () => { const res = await updateProfile({ user_id: userStore.userInfo.id, ...editForm.value }); if (res.data.code === 200) { ElMessage.success('保存成功'); author.value = res.data.data; userStore.setLoginState(userStore.token, res.data.data); editDialogVisible.value = false; } };
 const handleDeleteVideo = (id) => { ElMessageBox.confirm('确定删除？', '提示', { type: 'warning' }).then(async () => { await deleteVideo(id); loadData(); ElMessage.success('删除成功'); }); };
 
-watch(() => route.params.id, () => loadData());
+// 【修复点 3】监听路由变化，自动重置状态并加载新数据
+watch(() => route.params.id, (newId) => {
+  if (newId) {
+    // 重置页面状态
+    activeTab.value = 'videos';
+    searchQuery.value = '';
+    sortBy.value = 'new';
+    videoList.value = [];
+    playlists.value = [];
+    // 加载新数据
+    loadData();
+  }
+});
+
 onMounted(() => loadData());
 </script>
 
 <style scoped>
+/* 保持原有样式 */
 .channel-container { background: #f9f9f9; min-height: 100vh; padding-bottom: 40px; }
 .channel-layout { max-width: 1200px; margin: 0 auto; background: #fff; min-height: 100vh; }
 
@@ -434,112 +427,27 @@ onMounted(() => loadData());
 .video-title { font-size: 14px; font-weight: 600; line-height: 1.4; color: #0f0f0f; margin: 0 0 4px 0; }
 .video-meta { font-size: 12px; color: #606060; }
 
-/* --- 升级后的播放列表卡片样式 --- */
 .playlist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 20px; }
 .playlist-card-new { cursor: pointer; }
 
-.pl-thumb-container {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16/9;
-  margin-bottom: 10px;
-}
-
-/* 堆叠效果层 (顶部灰色条) */
-.pl-stack-layer {
-  position: absolute;
-  top: -4px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 90%;
-  height: 4px;
-  background: #d0d0d0;
-  border-radius: 4px 4px 0 0;
-  z-index: 0;
-}
-/* 主封面容器 */
-.pl-thumb-wrapper {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #eee;
-  z-index: 1;
-}
-.pl-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: opacity 0.2s;
-}
-/* 底部数量条 */
-.pl-count-bar {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 28px;
-  background: rgba(0,0,0,0.7);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 12px;
-  backdrop-filter: blur(2px);
-}
-/* 悬停播放遮罩 */
-.pl-hover-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.6);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
+.pl-thumb-container { position: relative; width: 100%; aspect-ratio: 16/9; margin-bottom: 10px; }
+.pl-stack-layer { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 90%; height: 4px; background: #d0d0d0; border-radius: 4px 4px 0 0; z-index: 0; }
+.pl-thumb-wrapper { position: relative; width: 100%; height: 100%; border-radius: 8px; overflow: hidden; background: #eee; z-index: 1; }
+.pl-img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.2s; }
+.pl-count-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 28px; background: rgba(0,0,0,0.7); color: white; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; backdrop-filter: blur(2px); }
+.pl-hover-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; opacity: 0; transition: opacity 0.2s; }
 .playlist-card-new:hover .pl-hover-overlay { opacity: 1; }
 
 .pl-info-new .pl-title-new { font-weight: 600; font-size: 14px; color: #0f0f0f; margin-bottom: 4px; }
 .pl-link-text { font-size: 12px; color: #606060; font-weight: 600; margin-bottom: 4px; }
 .pl-action-row { margin-top: 2px; }
 
-/* --- 播放列表详情弹窗 (YouTube Layout) --- */
-/* 左侧栏 */
+/* 弹窗布局 */
 .yt-pl-layout { display: flex; height: 500px; overflow: hidden; }
-.yt-pl-sidebar {
-  width: 360px;
-  flex-shrink: 0;
-  padding: 24px;
-  position: relative;
-  overflow: hidden;
-  background-size: cover;
-  background-position: center;
-  display: flex;
-  flex-direction: column;
-  color: white;
-}
-/* 背景毛玻璃 */
-.yt-pl-bg-blur {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  backdrop-filter: blur(40px) brightness(0.6);
-  background: rgba(0,0,0,0.5);
-  z-index: 0;
-}
+.yt-pl-sidebar { width: 360px; flex-shrink: 0; padding: 24px; position: relative; overflow: hidden; background-size: cover; background-position: center; display: flex; flex-direction: column; color: white; }
+.yt-pl-bg-blur { position: absolute; top: 0; left: 0; right: 0; bottom: 0; backdrop-filter: blur(40px) brightness(0.6); background: rgba(0,0,0,0.5); z-index: 0; }
 .yt-pl-content { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; }
-.yt-pl-cover-box {
-  width: 100%;
-  aspect-ratio: 16/9;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  margin-bottom: 20px;
-}
+.yt-pl-cover-box { width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.2); margin-bottom: 20px; }
 .yt-pl-cover-img { width: 100%; height: 100%; object-fit: cover; }
 .yt-pl-title { font-size: 24px; font-weight: bold; margin: 0 0 10px 0; }
 .yt-pl-owner { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
@@ -548,15 +456,8 @@ onMounted(() => loadData());
 .play-all-btn { width: 100%; background: white; color: black; border: none; font-weight: 600; }
 .play-all-btn:hover { background: #eee; color: black; }
 
-/* 右侧列表 */
 .yt-pl-list-container { flex: 1; background: #fff; overflow-y: auto; padding: 10px 0; }
-.yt-pl-item {
-  display: flex;
-  align-items: center;
-  padding: 10px 20px;
-  cursor: pointer;
-  transition: background 0.1s;
-}
+.yt-pl-item { display: flex; align-items: center; padding: 10px 20px; cursor: pointer; transition: background 0.1s; }
 .yt-pl-item:hover { background: #f2f2f2; }
 .yt-pl-index { width: 30px; color: #606060; font-size: 14px; }
 .yt-pl-thumb-box { width: 120px; height: 68px; border-radius: 8px; overflow: hidden; margin-right: 15px; flex-shrink: 0; }
@@ -565,11 +466,9 @@ onMounted(() => loadData());
 .yt-pl-v-title { font-size: 14px; font-weight: 600; color: #0f0f0f; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .yt-pl-v-meta { font-size: 12px; color: #606060; }
 
-/* 弹窗样式调整 */
 :deep(.yt-playlist-dialog .el-dialog__body) { padding: 0; }
-:deep(.yt-playlist-dialog .el-dialog__header) { display: none; } /* 隐藏原生标题 */
+:deep(.yt-playlist-dialog .el-dialog__header) { display: none; }
 
-/* 弹窗样式 */
 .avatar-uploader, .banner-uploader { border: 1px dashed #d9d9d9; cursor: pointer; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #fafafa; }
 .avatar-uploader { width: 100px; height: 100px; border-radius: 50%; }
 .banner-uploader { width: 100%; height: 100px; border-radius: 4px; }

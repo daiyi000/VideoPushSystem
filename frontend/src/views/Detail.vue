@@ -1,7 +1,7 @@
 <template>
   <div class="detail-container">
     <div v-if="video" class="main-layout">
-      
+      <!-- ... (Template内容保持不变) ... -->
       <el-row :gutter="24">
         <!-- 左侧：播放器 + 信息 + 评论 -->
         <el-col :span="17" :xs="24">
@@ -32,7 +32,12 @@
             
             <!-- 2. 视频信息区 -->
             <div class="info-section">
-              <h1 class="title">{{ video.title }}</h1>
+              <h1 class="title">
+                {{ video.title }}
+                <!-- 管理员/作者可见的状态标记 -->
+                <el-tag v-if="video.status === 0" type="warning" size="small" style="margin-left: 10px; vertical-align: middle;">审核中</el-tag>
+                <el-tag v-if="video.status === 2" type="danger" size="small" style="margin-left: 10px; vertical-align: middle;">已下架</el-tag>
+              </h1>
               
               <div class="action-bar">
                 <!-- 左侧：作者信息 + 关注按钮 -->
@@ -131,7 +136,12 @@
 
                     <!-- 回复输入框 -->
                     <div v-if="replyTargetId === c.id" class="reply-input-box">
-                      <el-input v-model="replyText" size="small" placeholder="写下你的回复..." />
+                      <el-input 
+                        v-model="replyText" 
+                        size="small" 
+                        placeholder="写下你的回复..." 
+                        ref="replyInputRef"
+                      />
                       <div class="reply-btns">
                         <el-button size="small" @click="replyTargetId = null">取消</el-button>
                         <el-button type="primary" size="small" @click="postComment(c.id)">回复</el-button>
@@ -249,7 +259,13 @@ const loadPageData = async (videoId) => {
       interaction.value = statusRes.data.data;
       postAction({ user_id: userStore.userInfo.id, video_id: videoId, type: 'view' });
     }
-  } catch (e) { console.error(e); }
+  } catch (e) { 
+    // 【核心修复】捕获 403/404 错误并跳转
+    console.error(e);
+    if (e.response && (e.response.status === 404 || e.response.status === 403)) {
+      router.replace('/404');
+    }
+  }
 };
 
 const handleSubscribe = async () => {
@@ -361,6 +377,7 @@ onMounted(() => { if(route.params.id) loadPageData(route.params.id); });
 </script>
 
 <style scoped>
+/* 保持原有样式，仅展示新增的标题状态标签样式 */
 .content-wrapper { background: transparent; margin-bottom: 20px; }
 .video-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; overflow: hidden; border-radius: 12px; }
 .real-video { width: 100%; height: 100%; }
