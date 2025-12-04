@@ -1,0 +1,144 @@
+from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
+from . import db
+
+# 多对多关系表：播放列表 <-> 视频
+playlist_video = db.Table('playlist_video',
+    db.Column('playlist_id', db.Integer, db.ForeignKey('playlists.id'), primary_key=True),
+    db.Column('video_id', db.Integer, db.ForeignKey('videos.id'), primary_key=True),
+    db.Column('added_at', db.DateTime, default=datetime.utcnow)
+)
+
+# 1. 用户表
+class User(db.Model):
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(64), nullable=False, default="新用户")
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False) 
+    avatar = db.Column(db.String(256), default='https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png')
+    banner = db.Column(db.String(256), default='https://via.placeholder.com/1200x300?text=Channel+Banner')
+    description = db.Column(db.String(256), default='这个人很懒，什么都没写')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # 【修复核心】改用 back_populates 显式定义，避免冲突
+    logs = db.relationship('ActionLog', back_populates='user', lazy='dynamic')
+    comments = db.relationship('Comment', back_populates='user', lazy='dynamic')
+    playlists = db.relationship('Playlist', back_populates='user', lazy='dynamic')
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    def to_dict(self):
+        return {
+            'id': self.id, 'username': self.username, 'email': self.email, 
+            'avatar': self.avatar, 'banner': self.banner, 'description': self.description
+        }
+
+# 2. 视频表
+class Video(db.Model):
+    __tablename__ = 'videos'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(128), nullable=False)
+    description = db.Column(db.Text)
+    url = db.Column(db.String(256), nullable=False) 
+    cover_url = db.Column(db.String(256))
+    category = db.Column(db.String(50))
+    tags = db.Column(db.String(128)) 
+    views = db.Column(db.Integer, default=0)
+    upload_time = db.Column(db.DateTime, default=datetime.utcnow)
+    uploader_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    
+    def to_dict(self):
+        return {
+            'id': self.id, 'title': self.title, 'description': self.description,
+            'url': self.url, 'cover_url': self.cover_url, 'category': self.category,
+            'views': self.views, 'tags': self.tags,
+            'upload_time': self.upload_time.strftime('%Y-%m-%d %H:%M'),
+            'uploader_id': self.uploader_id
+        }
+
+# 3. 行为日志
+class ActionLog(db.Model):
+    __tablename__ = 'action_logs'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    video_id = db.Column(db.Integer, db.ForeignKey('videos.id'))
+    action_type = db.Column(db.String(20)) 
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    weight = db.Column(db.Integer, default=1)
+    
+    # 【修复】显式定义 user
+    user = db.relationship('User', back_populates='logs')
+
+# 4. 评论
+class Comment(db.Model):
+    __tablename__ = 'comments'
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.String(1024), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    video_id = db.Column(db.Integer, db.ForeignKey('videos.id'))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    parent_id = db.Column(db.Integer, db.ForeignKey('comments.id'), nullable=True)
+    is_pinned = db.Column(db.Boolean, default=False)
+    likes = db.Column(db.Integer, default=0)
+    
+    # 【修复】显式定义 user，对应 User 表中的 comments
+    user = db.relationship('User', back_populates='comments')
+    
+    replies = db.relationship('Comment', backref=db.backref('parent', remote_side=[id]), lazy='dynamic')
+
+# 5. 播放列表
+class Playlist(db.Model):
+    __tablename__ = 'playlists'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(128), nullable=False)
+    description = db.Column(db.String(256))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # 【修复】显式定义 user
+    user = db.relationship('User', back_populates='playlists')
+    
+    videos = db.relationship('Video', secondary=playlist_video, backref=db.backref('in_playlists', lazy='dynamic'), lazy='dynamic')
+    
+    def to_dict(self):
+        return {
+            'id': self.id, 'title': self.title, 'description': self.description,
+            'count': self.videos.count(),
+            'created_at': self.created_at.strftime('%Y-%m-%d'),
+            'cover_url': self.videos.first().cover_url if self.videos.first() else 'https://via.placeholder.com/300x200?text=Empty'
+        }
+
+# 其他表保持简单定义
+class CommentLike(db.Model):
+    __tablename__ = 'comment_likes'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    comment_id = db.Column(db.Integer, db.ForeignKey('comments.id'))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Danmaku(db.Model):
+    __tablename__ = 'danmakus'
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.String(128), nullable=False)
+    time_point = db.Column(db.Float, nullable=False)
+    color = db.Column(db.String(128), default='#ffffff') 
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    video_id = db.Column(db.Integer, db.ForeignKey('videos.id'))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Follow(db.Model):
+    __tablename__ = 'follows'
+    id = db.Column(db.Integer, primary_key=True)
+    follower_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    followed_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+class EmailCaptcha(db.Model):
+    __tablename__ = 'email_captchas'
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), nullable=False)
+    code = db.Column(db.String(6), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
