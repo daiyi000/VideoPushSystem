@@ -56,3 +56,22 @@ def get_playlist_videos():
         return jsonify({'code': 404, 'msg': '列表不存在'}), 404
         
     return jsonify({'code': 200, 'data': [v.to_dict() for v in pl.videos]})
+
+# 从列表移除视频
+@playlist_bp.route('/remove_video', methods=['POST'])
+def remove_video_from_playlist():
+    data = request.get_json()
+    playlist_id = data.get('playlist_id')
+    video_id = data.get('video_id')
+    
+    pl = Playlist.query.get(playlist_id)
+    video = Video.query.get(video_id)
+    
+    if not pl or not video:
+        return jsonify({'code': 404, 'msg': '资源不存在'}), 404
+        
+    if video in pl.videos:
+        pl.videos.remove(video)
+        db.session.commit()
+        return jsonify({'code': 200, 'msg': '移除成功'})
+    return jsonify({'code': 400, 'msg': '视频不在列表中'})

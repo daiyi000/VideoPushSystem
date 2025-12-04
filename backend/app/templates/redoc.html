@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+<head>
+  <title>VideoHub API</title>
+  <meta charset="utf-8">
+  <!-- 
+    使用本地字体栈，无需下载字体文件，加载速度极快 
+    优先使用系统自带的现代字体
+  -->
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif; /* YouTube 风格字体 */
+    }
+  </style>
+  
+  <!-- 引入本地下载好的 RapiDoc 脚本 -->
+  <script type="module" src="/static/js/rapidoc-min.js"></script>
+</head>
+<body>
+
+  <!-- 
+    RapiDoc 配置说明:
+    spec-url: 接口数据源
+    render-style="read": 阅读模式（左导航，中内容）
+    theme="light": 亮色主题（YouTube风格）
+    primary-color="#FF0000": YouTube 红
+    allow-try="true": 允许发送请求
+    show-header="false": 隐藏自带顶栏，使用我们自定义的 Logo
+    use-path-in-nav-bar="false": 【核心修改】设置为 false，让侧边栏显示中文 Summary 而不是 URL 路径
+  -->
+  <rapi-doc
+    spec-url="/apispec_1.json"
+    theme="light"
+    render-style="read"
+    show-header="false"
+    show-info="true"
+    allow-authentication="true"
+    allow-server-selection="false"
+    allow-api-list-style="true"
+    
+    primary-color="#FF0000"
+    nav-bg-color="#ffffff"
+    nav-text-color="#0f0f0f"
+    nav-hover-bg-color="#f2f2f2"
+    nav-hover-text-color="#FF0000"
+    nav-accent-color="#FF0000"
+    
+    use-path-in-nav-bar="false"
+    font-size="large"
+  >
+    <!-- 自定义侧边栏 Logo -->
+    <div slot="nav-logo" style="display: flex; align-items: center; gap: 10px; padding: 20px 10px; border-bottom: 1px solid #eee;">
+        <span style="font-size: 28px; color: #FF0000;">▶</span>
+        <span style="font-size: 20px; font-weight: bold; letter-spacing: -0.5px; color: #212121;">VideoHub API</span>
+    </div>
+
+  </rapi-doc>
+
+  <!-- 脚本：强力隐藏左侧小箭头 -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const rapiDoc = document.querySelector('rapi-doc');
+      
+      // 定义注入样式的函数
+      const injectCustomStyles = () => {
+        if (!rapiDoc.shadowRoot) return;
+        
+        // 防止重复注入
+        if (rapiDoc.shadowRoot.getElementById('custom-css-hide-arrow')) return;
+
+        const style = document.createElement('style');
+        style.id = 'custom-css-hide-arrow';
+        style.innerHTML = `
+          /* 1. 隐藏 SVG 类型的箭头 (部分版本 RapiDoc) */
+          input[placeholder*="Filter"] ~ svg,
+          .nav-bar input[type="text"] ~ svg,
+          input.search-input ~ svg {
+            display: none !important;
+            width: 0 !important;
+            opacity: 0 !important;
+          }
+
+          /* 2. 隐藏 Div 类型的回车箭头 (你发现的情况) */
+          /* 通过匹配其特殊的 margin 样式来精准定位 */
+          div[style*="margin: 6px 5px 0 -24px"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+          }
+        `;
+        rapiDoc.shadowRoot.appendChild(style);
+      };
+
+      // 1. 尝试立即注入
+      injectCustomStyles();
+
+      // 2. 监听 spec-loaded 事件，文档加载完后再注入一次
+      rapiDoc.addEventListener('spec-loaded', () => {
+        setTimeout(injectCustomStyles, 100);
+      });
+
+      // 3. 使用 MutationObserver 进行持久化监听 (根源解决)
+      // 只要 RapiDoc 内部结构发生变化（比如重新渲染），就检查样式是否存在
+      const observer = new MutationObserver(() => {
+        injectCustomStyles();
+      });
+
+      // 等待 Shadow DOM 生成后开启监听
+      const initObserver = setInterval(() => {
+        if (rapiDoc.shadowRoot) {
+          observer.observe(rapiDoc.shadowRoot, { childList: true, subtree: true });
+          injectCustomStyles(); // 再次确保注入
+          clearInterval(initObserver);
+        }
+      }, 200);
+    });
+  </script>
+
+</body>
+</html>

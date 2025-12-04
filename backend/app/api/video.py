@@ -81,14 +81,20 @@ def get_video_list():
     category = request.args.get('category')
     search_query = request.args.get('q')
     
-    # 【修复】增加 status=1 筛选
+    # 只查询已发布的
     query = Video.query.filter_by(status=1)
     
     if category and category != '全部':
         query = query.filter_by(category=category)
+    
     if search_query:
         rule = f"%{search_query}%"
-        query = query.filter((Video.title.like(rule)) | (Video.description.like(rule)))
+        # 【核心修改】联表查询：同时匹配 标题、简介、作者名
+        query = query.join(User).filter(
+            (Video.title.like(rule)) | 
+            (Video.description.like(rule)) |
+            (User.username.like(rule))
+        )
         
     videos = query.order_by(Video.upload_time.desc()).all()
     return jsonify({'code': 200, 'data': [v.to_dict() for v in videos]})

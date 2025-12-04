@@ -9,12 +9,17 @@ export function createPlaylist(data) {
 export function deletePlaylist(id) {
   return request({ url: '/playlist/delete', method: 'post', data: { id } });
 }
-
+// 向播放列表添加视频
 export function addVideoToPlaylist(data) {
   // data: { playlist_id, video_id }
   return request({ url: '/playlist/add_video', method: 'post', data });
 }
-
+// 【新增】从列表移除视频
+export function removeVideoFromPlaylist(data) {
+  // data: { playlist_id, video_id }
+  return request({ url: '/playlist/remove_video', method: 'post', data });
+}
+// 获取播放列表中的视频
 export function getPlaylistVideos(id) {
   return request({ url: `/playlist/videos?id=${id}`, method: 'get' });
 }

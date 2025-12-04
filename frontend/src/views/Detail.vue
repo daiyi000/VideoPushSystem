@@ -1,28 +1,23 @@
 <template>
   <div class="detail-container">
     <div v-if="video" class="main-layout">
-      <!-- ... (Template内容保持不变) ... -->
+      
       <el-row :gutter="24">
         <!-- 左侧：播放器 + 信息 + 评论 -->
         <el-col :span="17" :xs="24">
           <div class="content-wrapper">
-            
-            <!-- 1. 播放器容器 -->
+            <!-- 播放器容器 -->
             <div class="video-container">
               <video 
                 ref="videoRef" :src="video.url" controls autoplay class="real-video"
                 @timeupdate="handleTimeUpdate" @play="onVideoPlay" @pause="onVideoPause">
               </video>
-              
-              <!-- 弹幕层 -->
               <div class="danmaku-layer" :style="{ animationPlayState: isVideoPaused ? 'paused' : 'running' }">
                 <div v-for="dm in activeDanmakus" :key="dm.id" class="danmaku-item"
                   :style="{ top: dm.top + '%', color: dm.color, animationDuration: dm.speed + 's', animationPlayState: isVideoPaused ? 'paused' : 'running' }">
                   {{ dm.text }}
                 </div>
               </div>
-              
-              <!-- 弹幕输入 -->
               <div class="danmaku-input-bar">
                 <el-color-picker v-model="danmakuColor" size="small" show-alpha />
                 <input v-model="danmakuText" class="dm-input" placeholder="发个弹幕..." @keyup.enter="fireDanmaku"/>
@@ -30,17 +25,11 @@
               </div>
             </div>
             
-            <!-- 2. 视频信息区 -->
+            <!-- 视频信息区 -->
             <div class="info-section">
-              <h1 class="title">
-                {{ video.title }}
-                <!-- 管理员/作者可见的状态标记 -->
-                <el-tag v-if="video.status === 0" type="warning" size="small" style="margin-left: 10px; vertical-align: middle;">审核中</el-tag>
-                <el-tag v-if="video.status === 2" type="danger" size="small" style="margin-left: 10px; vertical-align: middle;">已下架</el-tag>
-              </h1>
+              <h1 class="title">{{ video.title }}</h1>
               
               <div class="action-bar">
-                <!-- 左侧：作者信息 + 关注按钮 -->
                 <div class="left-meta">
                   <div class="uploader-mini" @click="$router.push(`/channel/${video.uploader_id}`)">
                     <el-avatar :size="40" :src="video.uploader_avatar" />
@@ -49,8 +38,6 @@
                       <div class="subs">{{ channelStats.fans }} 位订阅者</div>
                     </div>
                   </div>
-                  
-                  <!-- 关注按钮 -->
                   <button 
                     class="yt-sub-btn" 
                     :class="{ subscribed: channelStats.is_following }"
@@ -60,7 +47,6 @@
                   </button>
                 </div>
                 
-                <!-- 右侧：点赞 & 收藏 -->
                 <div class="right-actions">
                   <div class="yt-like-btn" @click="toggleLike" :class="{ active: interaction.is_like }">
                     <el-icon size="20">
@@ -83,7 +69,7 @@
               </div>
             </div>
 
-            <!-- 3. 评论区 -->
+            <!-- 评论区 -->
             <div class="comment-section">
               <div class="comment-header">
                 <h3>{{ comments.length }} 条评论</h3>
@@ -92,7 +78,6 @@
                   <span>排序方式：{{ sortType === 'hot' ? '最热优先' : '最新优先' }}</span>
                 </div>
               </div>
-              
               <div class="comment-input">
                 <el-avatar :size="40" :src="userStore.userInfo.avatar || 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'" />
                 <div class="input-wrapper">
@@ -103,8 +88,6 @@
                   </div>
                 </div>
               </div>
-
-              <!-- 评论列表 -->
               <div class="comment-list">
                 <div v-for="c in comments" :key="c.id" class="comment-item">
                   <el-avatar :size="40" :src="c.user.avatar" class="c-avatar" />
@@ -112,14 +95,8 @@
                     <div v-if="c.is_pinned" class="pinned-badge">
                       <el-icon><Top /></el-icon> 由 {{ video.uploader_name }} 置顶
                     </div>
-
-                    <div class="c-header">
-                      <span class="c-user">@{{ c.user.username }}</span>
-                      <span class="c-time">{{ c.time }}</span>
-                    </div>
+                    <div class="c-header"><span class="c-user">@{{ c.user.username }}</span><span class="c-time">{{ c.time }}</span></div>
                     <div class="c-text">{{ c.content }}</div>
-                    
-                    <!-- 顶级评论操作栏 -->
                     <div class="c-actions">
                       <div class="c-action-btn" @click="handleLikeComment(c)" :class="{ 'is-liked': c.is_liked }">
                         <svg v-if="c.is_liked" style="width:16px;height:16px;margin-right:4px;" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-1.91l-.01-.01L23 10z"/></svg>
@@ -127,67 +104,74 @@
                         {{ c.likes || '' }}
                       </div>
                       <div class="c-action-btn" @click="openReply(c.id, c.user.username)">回复</div>
-                      
                       <el-dropdown v-if="isOwner" trigger="click" @command="handlePin(c.id)">
                         <span class="c-more-btn"><el-icon><MoreFilled /></el-icon></span>
                         <template #dropdown><el-dropdown-menu><el-dropdown-item>{{ c.is_pinned ? '取消置顶' : '置顶评论' }}</el-dropdown-item></el-dropdown-menu></template>
                       </el-dropdown>
                     </div>
-
-                    <!-- 回复输入框 -->
                     <div v-if="replyTargetId === c.id" class="reply-input-box">
-                      <el-input 
-                        v-model="replyText" 
-                        size="small" 
-                        placeholder="写下你的回复..." 
-                        ref="replyInputRef"
-                      />
-                      <div class="reply-btns">
-                        <el-button size="small" @click="replyTargetId = null">取消</el-button>
-                        <el-button type="primary" size="small" @click="postComment(c.id)">回复</el-button>
-                      </div>
+                      <el-input v-model="replyText" size="small" placeholder="写下你的回复..." />
+                      <div class="reply-btns"><el-button size="small" @click="replyTargetId = null">取消</el-button><el-button type="primary" size="small" @click="postComment(c.id)">回复</el-button></div>
                     </div>
-
-                    <!-- 子评论列表 -->
                     <div v-if="c.replies && c.replies.length > 0">
-                      <div class="replies-toggle" v-if="!c.expanded" @click="c.expanded = true">
-                        <el-icon><CaretBottom /></el-icon> 展开 {{ c.replies.length }} 条回复
-                      </div>
+                      <div class="replies-toggle" v-if="!c.expanded" @click="c.expanded = true"><el-icon><CaretBottom /></el-icon> 展开 {{ c.replies.length }} 条回复</div>
                       <div v-else>
                         <div v-for="r in c.replies" :key="r.id" class="reply-item">
                           <el-avatar :size="24" :src="r.user.avatar" class="r-avatar" />
-                          <div class="r-body">
-                            <div class="c-header"><span class="c-user">@{{ r.user.username }}</span><span class="c-time">{{ r.time }}</span></div>
-                            <div class="c-text">{{ r.content }}</div>
-                            <div class="c-actions">
-                              <div class="c-action-btn" @click="handleLikeComment(r)" :class="{ 'is-liked': r.is_liked }">
-                                <svg v-if="r.is_liked" style="width:14px;height:14px;margin-right:4px;" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-1.91l-.01-.01L23 10z"/></svg>
-                                <svg v-else style="width:14px;height:14px;margin-right:4px;" viewBox="0 0 24 24" fill="currentColor"><path d="M9 21h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.58 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2zM9 9l4.34-4.34L12 10h9v2l-3 7H9V9zM1 9h4v12H1z"/></svg>
-                                {{ r.likes || '' }}
-                              </div>
-                              <div class="c-action-btn" @click="openReply(c.id, r.user.username)">回复</div>
-                            </div>
+                          <div class="r-body"><div class="c-header"><span class="c-user">@{{ r.user.username }}</span><span class="c-time">{{ r.time }}</span></div><div class="c-text">{{ r.content }}</div>
+                            <div class="c-actions"><div class="c-action-btn" @click="handleLikeComment(r)" :class="{ 'is-liked': r.is_liked }"><svg v-if="r.is_liked" style="width:14px;height:14px;margin-right:4px;" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-1.91l-.01-.01L23 10z"/></svg><svg v-else style="width:14px;height:14px;margin-right:4px;" viewBox="0 0 24 24" fill="currentColor"><path d="M9 21h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.58 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2zM9 9l4.34-4.34L12 10h9v2l-3 7H9V9zM1 9h4v12H1z"/></svg>{{ r.likes || '' }}</div><div class="c-action-btn" @click="openReply(c.id, r.user.username)">回复</div></div>
                           </div>
                         </div>
                         <div class="replies-toggle" @click="c.expanded = false"><el-icon><CaretTop /></el-icon> 收起</div>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-col>
 
+        <!-- 右侧：推荐列表 -->
+        <el-col :span="7" :xs="24">
+          <div class="sidebar-content">
+            
+            <!-- 【新增】播放列表卡片 (仅当 URL 带 list 参数时显示) -->
+            <div v-if="playlistVideos.length > 0" class="playlist-panel">
+              <div class="panel-header">
+                <div class="panel-title">正在播放</div>
+                <div class="panel-subtitle">当前播放列表</div>
+              </div>
+              <div class="panel-list">
+                <div 
+                  v-for="(v, index) in playlistVideos" 
+                  :key="v.id" 
+                  class="panel-item" 
+                  :class="{ active: String(v.id) === String(video.id) }"
+                  @click="goToVideo(v.id, route.query.list)"
+                >
+                  <div class="panel-index" v-if="String(v.id) !== String(video.id)">{{ index + 1 }}</div>
+                  <div class="panel-index" v-else><el-icon><VideoPlay /></el-icon></div>
+                  
+                  <div class="panel-thumb">
+                    <img :src="v.cover_url">
+                  </div>
+                  <div class="panel-info">
+                    <div class="panel-v-title">{{ v.title }}</div>
+                    <div class="panel-v-author">{{ v.uploader_name }}</div>
                   </div>
                 </div>
               </div>
             </div>
 
-          </div>
-        </el-col>
-
-        <!-- 右侧推荐 -->
-        <el-col :span="7" :xs="24">
-          <div class="recommend-list">
-            <div v-for="item in relatedVideos" :key="item.id" class="related-item" @click="router.push(`/video/${item.id}`)">
-              <div class="related-cover-box"><img :src="item.cover_url" class="related-cover"/><span class="duration">10:24</span></div>
-              <div class="related-info"><div class="related-title">{{ item.title }}</div><div class="related-meta">{{ item.uploader_name }}</div><div class="related-meta">{{ item.views }}次观看</div></div>
+            <!-- 相关视频推荐 (排在播放列表下方) -->
+            <div class="recommend-list">
+              <div v-for="item in relatedVideos" :key="item.id" class="related-item" @click="goToVideo(item.id)">
+                <div class="related-cover-box"><img :src="item.cover_url" class="related-cover"/><span class="duration">10:24</span></div>
+                <div class="related-info"><div class="related-title">{{ item.title }}</div><div class="related-meta">{{ item.uploader_name }}</div><div class="related-meta">{{ item.views }}次观看</div></div>
+              </div>
             </div>
+            
           </div>
         </el-col>
       </el-row>
@@ -203,8 +187,9 @@ import { getVideoDetail, postAction, checkFavStatus } from '../api/video';
 import { getRelatedVideos } from '../api/recommend';
 import { getComments, sendComment, likeComment, pinComment, getDanmaku, sendDanmaku, checkInteractionStatus } from '../api/interaction';
 import { toggleFollow, getChannelInfo } from '../api/user';
+import { getPlaylistVideos } from '../api/playlist'; // 引入 API
 import { ElMessage } from 'element-plus';
-import { Star, StarFilled, Sort, CaretBottom, CaretTop, MoreFilled, Top } from '@element-plus/icons-vue';
+import { Star, StarFilled, Sort, CaretBottom, CaretTop, MoreFilled, Top, VideoPlay } from '@element-plus/icons-vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -229,6 +214,9 @@ const allDanmakus = ref([]);
 const activeDanmakus = ref([]);
 const isVideoPaused = ref(false);
 
+// 播放列表数据
+const playlistVideos = ref([]);
+
 const isOwner = computed(() => {
   if (!video.value || !userStore.userInfo) return false;
   return String(video.value.uploader_id) === String(userStore.userInfo.id);
@@ -241,15 +229,25 @@ const loadPageData = async (videoId) => {
     video.value = res.data.data;
     currentLikes.value = res.data.data.likes || 0;
     
-    // 加载作者信息
     const channelRes = await getChannelInfo({
       author_id: video.value.uploader_id,
       visitor_id: userStore.token ? userStore.userInfo.id : null
     });
     channelStats.value = channelRes.data.data.stats;
 
+    // 1. 加载相关推荐
     const recRes = await getRelatedVideos(videoId);
     relatedVideos.value = recRes.data.data;
+
+    // 2. 检查是否有 playlist 参数，如果有，加载播放列表
+    if (route.query.list) {
+      const plRes = await getPlaylistVideos(route.query.list);
+      if (plRes.data.code === 200) {
+        playlistVideos.value = plRes.data.data;
+      }
+    } else {
+      playlistVideos.value = []; // 清空防止残留
+    }
 
     loadComments();
     loadDanmaku(videoId);
@@ -259,12 +257,21 @@ const loadPageData = async (videoId) => {
       interaction.value = statusRes.data.data;
       postAction({ user_id: userStore.userInfo.id, video_id: videoId, type: 'view' });
     }
-  } catch (e) { 
-    // 【核心修复】捕获 403/404 错误并跳转
+  } catch (e) {
     console.error(e);
     if (e.response && (e.response.status === 404 || e.response.status === 403)) {
       router.replace('/404');
     }
+  }
+};
+
+// 统一跳转方法
+const goToVideo = (vid, playlistId = null) => {
+  if (playlistId) {
+    router.push({ path: `/video/${vid}`, query: { list: playlistId } });
+  } else {
+    // 如果之前有 list 参数，点击普通推荐时移除 list 参数
+    router.push({ path: `/video/${vid}` });
   }
 };
 
@@ -283,92 +290,18 @@ const handleSubscribe = async () => {
 
 const onVideoPause = () => { isVideoPaused.value = true; };
 const onVideoPlay = () => { isVideoPaused.value = false; };
-
-const loadComments = async () => {
-  const uid = userStore.token ? userStore.userInfo.id : null;
-  const res = await getComments(video.value.id, sortType.value, uid);
-  comments.value = res.data.data.map(c => ({ ...c, expanded: false }));
-};
-
-const toggleSort = () => {
-  sortType.value = sortType.value === 'hot' ? 'new' : 'hot';
-  loadComments();
-};
-
-const postComment = async (parentId = null) => {
-  if (!userStore.token) return ElMessage.warning('请先登录');
-  const content = parentId ? replyText.value : commentText.value;
-  if (!content.trim()) return;
-  await sendComment({ user_id: userStore.userInfo.id, video_id: video.value.id, content: content, parent_id: parentId });
-  commentText.value = ''; replyText.value = ''; replyTargetId.value = null;
-  ElMessage.success('评论成功');
-  loadComments();
-};
-
-const openReply = (rootId, targetUsername = null) => {
-  if (!userStore.token) return ElMessage.warning('请先登录');
-  replyTargetId.value = rootId;
-  if (targetUsername) { replyText.value = `回复 @${targetUsername} : `; } else { replyText.value = ''; }
-};
-
-const handleLikeComment = async (comment) => {
-  if (!userStore.token) return ElMessage.warning('请先登录');
-  try {
-    const res = await likeComment(comment.id, userStore.userInfo.id);
-    if (res.data.code === 200) {
-      comment.likes = res.data.likes;
-      comment.is_liked = (res.data.action === 'like');
-    }
-  } catch (e) { console.error(e); }
-};
-
-const handlePin = async (commentId) => {
-  try { await pinComment({ user_id: userStore.userInfo.id, comment_id: commentId }); ElMessage.success('操作成功'); loadComments(); } catch (e) { ElMessage.error('操作失败'); }
-};
-
-const toggleLike = async () => {
-  if (!userStore.token) return ElMessage.warning('请先登录');
-  const isLiking = !interaction.value.is_like;
-  const type = isLiking ? 'like' : 'unlike';
-  try {
-    interaction.value.is_like = isLiking;
-    if (isLiking) { currentLikes.value += 1; } else { currentLikes.value -= 1; }
-    await postAction({ user_id: userStore.userInfo.id, video_id: video.value.id, type });
-  } catch (e) {
-    interaction.value.is_like = !isLiking;
-    currentLikes.value = isLiking ? currentLikes.value - 1 : currentLikes.value + 1;
-    ElMessage.error('操作失败');
-  }
-};
-
-const toggleFav = async () => {
-  if (!userStore.token) return ElMessage.warning('请先登录');
-  const type = interaction.value.is_fav ? 'unfavorite' : 'favorite';
-  try { await postAction({ user_id: userStore.userInfo.id, video_id: video.value.id, type }); interaction.value.is_fav = !interaction.value.is_fav; } catch (e) { ElMessage.error('操作失败'); }
-};
-
+const loadComments = async () => { const uid = userStore.token ? userStore.userInfo.id : null; const res = await getComments(video.value.id, sortType.value, uid); comments.value = res.data.data.map(c => ({ ...c, expanded: false })); };
+const toggleSort = () => { sortType.value = sortType.value === 'hot' ? 'new' : 'hot'; loadComments(); };
+const postComment = async (parentId = null) => { if (!userStore.token) return ElMessage.warning('请先登录'); const content = parentId ? replyText.value : commentText.value; if (!content.trim()) return; await sendComment({ user_id: userStore.userInfo.id, video_id: video.value.id, content: content, parent_id: parentId }); commentText.value = ''; replyText.value = ''; replyTargetId.value = null; ElMessage.success('评论成功'); loadComments(); };
+const openReply = (rootId, targetUsername = null) => { if (!userStore.token) return ElMessage.warning('请先登录'); replyTargetId.value = rootId; if (targetUsername) { replyText.value = `回复 @${targetUsername} : `; } else { replyText.value = ''; } };
+const handleLikeComment = async (comment) => { if (!userStore.token) return ElMessage.warning('请先登录'); try { const res = await likeComment(comment.id, userStore.userInfo.id); if (res.data.code === 200) { comment.likes = res.data.likes; comment.is_liked = (res.data.action === 'like'); } } catch (e) { console.error(e); } };
+const handlePin = async (commentId) => { try { await pinComment({ user_id: userStore.userInfo.id, comment_id: commentId }); ElMessage.success('操作成功'); loadComments(); } catch (e) { ElMessage.error('操作失败'); } };
+const toggleLike = async () => { if (!userStore.token) return ElMessage.warning('请先登录'); const isLiking = !interaction.value.is_like; const type = isLiking ? 'like' : 'unlike'; try { interaction.value.is_like = isLiking; if (isLiking) { currentLikes.value += 1; } else { currentLikes.value -= 1; } await postAction({ user_id: userStore.userInfo.id, video_id: video.value.id, type }); } catch (e) { interaction.value.is_like = !isLiking; currentLikes.value = isLiking ? currentLikes.value - 1 : currentLikes.value + 1; ElMessage.error('操作失败'); } };
+const toggleFav = async () => { if (!userStore.token) return ElMessage.warning('请先登录'); const type = interaction.value.is_fav ? 'unfavorite' : 'favorite'; try { await postAction({ user_id: userStore.userInfo.id, video_id: video.value.id, type }); interaction.value.is_fav = !interaction.value.is_fav; } catch (e) { ElMessage.error('操作失败'); } };
 const loadDanmaku = async (vid) => { const res = await getDanmaku(vid); allDanmakus.value = res.data.data; };
-const fireDanmaku = async () => {
-  if (!userStore.token) return ElMessage.warning('登录后发弹幕');
-  if (!danmakuText.value) return;
-  const time = videoRef.value.currentTime;
-  const text = danmakuText.value;
-  const color = danmakuColor.value || '#FFFFFF';
-  await sendDanmaku({ user_id: userStore.userInfo.id, video_id: video.value.id, text, time, color });
-  pushDanmakuToScreen({ text, color });
-  danmakuText.value = '';
-  ElMessage.success('发射成功');
-};
-const pushDanmakuToScreen = (dm) => {
-  const id = Date.now() + Math.random();
-  activeDanmakus.value.push({ id, text: dm.text, color: dm.color, top: Math.random() * 80, speed: 5 + Math.random() * 5 });
-  setTimeout(() => { activeDanmakus.value = activeDanmakus.value.filter(d => d.id !== id); }, 10000);
-};
-const handleTimeUpdate = (e) => {
-  const currentTime = e.target.currentTime;
-  allDanmakus.value.forEach(dm => { if (Math.abs(dm.time - currentTime) < 0.5 && !dm.shown) { pushDanmakuToScreen(dm); dm.shown = true; } });
-};
-
+const fireDanmaku = async () => { if (!userStore.token) return ElMessage.warning('登录后发弹幕'); if (!danmakuText.value) return; const time = videoRef.value.currentTime; const text = danmakuText.value; const color = danmakuColor.value || '#FFFFFF'; await sendDanmaku({ user_id: userStore.userInfo.id, video_id: video.value.id, text, time, color }); pushDanmakuToScreen({ text, color }); danmakuText.value = ''; ElMessage.success('发射成功'); };
+const pushDanmakuToScreen = (dm) => { const id = Date.now() + Math.random(); activeDanmakus.value.push({ id, text: dm.text, color: dm.color, top: Math.random() * 80, speed: 5 + Math.random() * 5 }); setTimeout(() => { activeDanmakus.value = activeDanmakus.value.filter(d => d.id !== id); }, 10000); };
+const handleTimeUpdate = (e) => { const currentTime = e.target.currentTime; allDanmakus.value.forEach(dm => { if (Math.abs(dm.time - currentTime) < 0.5 && !dm.shown) { pushDanmakuToScreen(dm); dm.shown = true; } }); };
 const formatCount = (num) => num >= 10000 ? (num / 10000).toFixed(1) + '万' : num;
 const formatTime = (timeStr) => timeStr ? timeStr.split(' ')[0] : '';
 
@@ -377,7 +310,6 @@ onMounted(() => { if(route.params.id) loadPageData(route.params.id); });
 </script>
 
 <style scoped>
-/* 保持原有样式，仅展示新增的标题状态标签样式 */
 .content-wrapper { background: transparent; margin-bottom: 20px; }
 .video-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; overflow: hidden; border-radius: 12px; }
 .real-video { width: 100%; height: 100%; }
@@ -434,6 +366,46 @@ onMounted(() => { if(route.params.id) loadPageData(route.params.id); });
 .replies-toggle:hover { background-color: #def1ff; }
 .reply-item { display: flex; gap: 10px; margin-top: 10px; margin-bottom: 10px; }
 
+/* 侧边栏整体容器 */
+.sidebar-content { display: flex; flex-direction: column; gap: 20px; }
+
+/* 播放列表面板样式 */
+.playlist-panel {
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+.panel-header {
+  background: #f2f2f2;
+  padding: 15px;
+  border-bottom: 1px solid #e5e5e5;
+}
+.panel-title { font-weight: bold; font-size: 16px; margin-bottom: 4px; }
+.panel-subtitle { font-size: 12px; color: #606060; }
+
+.panel-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+.panel-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.panel-item:hover { background: #f2f2f2; }
+.panel-item.active { background: #e5e5e5; }
+
+.panel-index { width: 24px; font-size: 12px; color: #606060; text-align: center; }
+.panel-thumb { width: 100px; height: 56px; border-radius: 4px; overflow: hidden; margin: 0 10px; flex-shrink: 0; }
+.panel-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.panel-info { flex: 1; min-width: 0; }
+.panel-v-title { font-size: 14px; font-weight: 600; color: #0f0f0f; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.panel-v-author { font-size: 12px; color: #606060; }
+
+/* 推荐视频列表 */
 .recommend-list { display: flex; flex-direction: column; gap: 8px; }
 .related-item { display: flex; gap: 8px; cursor: pointer; }
 .related-cover-box { position: relative; width: 168px; height: 94px; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: #ddd; }
