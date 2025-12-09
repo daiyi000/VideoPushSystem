@@ -48,3 +48,23 @@ export function checkFavStatus(userId, videoId) {
     params: { user_id: userId, video_id: videoId } 
   });
 }
+
+// 1. 上传视频文件 (第一阶段)
+export function uploadVideoFile(formData) {
+  return request({
+    url: '/video/upload_file',
+    method: 'post',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+}
+
+// 2. 发布视频信息 (第二阶段)
+export function publishVideo(data) {
+  // data: { id, title, description, category, tags, cover_url }
+  return request({
+    url: '/video/publish',
+    method: 'post',
+    data
+  });
+}

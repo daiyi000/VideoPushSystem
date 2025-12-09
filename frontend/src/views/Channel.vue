@@ -1,10 +1,11 @@
 <template>
-  <div class="channel-container">
-    <div class="channel-layout">
+  <!-- 增加 v-loading 指令，在加载或跳转期间显示 Loading -->
+  <div class="channel-container" v-loading="loading" element-loading-text="正在加载频道...">
+    <!-- 只有当不处于加载状态时，才显示内容 -->
+    <div class="channel-layout" v-if="!loading && author.id">
       
       <!-- 1. 频道头部 -->
       <div class="channel-header">
-        <!-- 动态横幅 (触发裁剪) -->
         <div 
           class="channel-banner" 
           :style="bannerStyle" 
@@ -14,12 +15,10 @@
           <div class="edit-overlay" v-if="isOwner">
             <el-icon><Camera /></el-icon><span>更换横幅</span>
           </div>
-          <!-- 隐藏的原生 input -->
           <input type="file" ref="bannerInput" style="display: none" accept="image/*" @change="onFileSelect($event, 'banner')" />
         </div>
         
         <div class="header-content">
-          <!-- 头像 (触发裁剪) -->
           <div 
             class="avatar-section" 
             @click="isOwner ? triggerAvatarSelect() : null"
@@ -33,34 +32,43 @@
           <div class="info-section">
             <h1 class="channel-name">{{ author.username }}</h1>
             <div class="channel-meta">
-              <span class="meta-item">{{ author.email || 'VideoHub 用户' }}</span>
+              <span class="meta-item">@{{ author.username }}</span>
               <span class="meta-item">{{ stats.fans }} 位订阅者</span>
               <span class="meta-item">{{ videoList.length }} 个视频</span>
             </div>
             <div class="channel-desc">{{ author.description || '这个人很懒，什么都没写' }}</div>
             
             <div class="subscribe-btn-wrapper">
-              <button v-if="!isOwner" class="yt-sub-btn" :class="{ subscribed: stats.is_following }" @click="handleSubscribe">
+              <button 
+                v-if="!isOwner"
+                class="yt-sub-btn" 
+                :class="{ subscribed: stats.is_following }"
+                @click="handleSubscribe"
+              >
                 {{ stats.is_following ? '已订阅' : '订阅' }}
               </button>
+              
               <div v-else class="owner-actions">
-                <el-button round class="action-btn" @click="openEditDialog">自定义频道</el-button>
-                <el-button round class="action-btn" @click="manageDialogVisible = true">管理视频</el-button>
+                <el-button round class="action-btn" @click="navigateToStudio('customization')">自定义频道</el-button>
+                <el-button round class="action-btn" @click="navigateToStudio('content')">管理视频</el-button>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 内容导航 -->
+      <!-- 2. 内容导航 -->
       <div class="channel-nav">
         <div class="nav-tabs">
           <div class="nav-tab" :class="{ active: activeTab === 'videos' }" @click="activeTab = 'videos'">视频</div>
           <div class="nav-tab" :class="{ active: activeTab === 'playlists' }" @click="activeTab = 'playlists'">播放列表</div>
         </div>
+        
         <div class="nav-filters" v-if="activeTab === 'videos'">
           <el-select v-model="sortBy" placeholder="排序" size="small" style="width: 110px" @change="loadData">
-            <el-option label="最新发布" value="new" /><el-option label="最受欢迎" value="hot" /><el-option label="最早发布" value="old" />
+            <el-option label="最新发布" value="new" />
+            <el-option label="最受欢迎" value="hot" />
+            <el-option label="最早发布" value="old" />
           </el-select>
           <div class="channel-search">
             <el-icon class="search-icon"><Search /></el-icon>
@@ -68,21 +76,37 @@
           </div>
         </div>
       </div>
+
       <el-divider style="margin: 0; border-color: #e5e5e5;" />
 
-      <!-- Tab 内容区 -->
+      <!-- 3. Tab 内容区 -->
       <div class="content-section">
+        
+        <!-- A. 视频列表 -->
         <div v-if="activeTab === 'videos'">
           <div v-if="videoList.length > 0" class="video-grid">
             <div v-for="video in videoList" :key="video.id" class="video-card" @click="goToVideo(video.id)">
-              <div class="thumbnail-wrapper"><img :src="video.cover_url" class="thumbnail" /><span class="duration">HD</span></div>
-              <div class="video-info"><h3 class="video-title" :title="video.title">{{ video.title }}</h3><div class="video-meta">{{ video.views }}次观看 • {{ video.upload_time.split(' ')[0] }}</div></div>
+              <div class="thumbnail-wrapper">
+                <img :src="video.cover_url" class="thumbnail" />
+                <span class="duration">HD</span>
+              </div>
+              <div class="video-info">
+                <h3 class="video-title" :title="video.title">{{ video.title }}</h3>
+                <div class="video-meta">
+                  {{ video.views }}次观看 • {{ video.upload_time.split(' ')[0] }}
+                </div>
+              </div>
             </div>
           </div>
           <el-empty v-else description="该作者还没有相关视频" />
         </div>
+
+        <!-- B. 播放列表 -->
         <div v-if="activeTab === 'playlists'">
-          <div v-if="isOwner" style="margin-bottom: 20px;"><el-button type="primary" plain @click="openPlaylistDialog">+ 新建播放列表</el-button></div>
+          <div v-if="isOwner" style="margin-bottom: 20px;">
+            <el-button type="primary" plain @click="openPlaylistDialog">+ 新建播放列表</el-button>
+          </div>
+
           <div v-if="playlists.length > 0" class="playlist-grid">
             <div v-for="pl in playlists" :key="pl.id" class="playlist-card-new" @click="handleViewPlaylist(pl)">
               <div class="pl-thumb-container">
@@ -93,66 +117,93 @@
                   <div class="pl-hover-overlay"><el-icon size="40"><VideoPlay /></el-icon><span>查看列表</span></div>
                 </div>
               </div>
-              <div class="pl-info-new"><div class="pl-title-new">{{ pl.title }}</div><div class="pl-link-text">查看完整播放列表</div></div>
+              <div class="pl-info-new">
+                <div class="pl-title-new">{{ pl.title }}</div>
+                <div class="pl-link-text">查看完整播放列表</div>
+              </div>
             </div>
           </div>
           <el-empty v-else description="暂无播放列表" />
         </div>
+
       </div>
     </div>
 
-    <!-- 弹窗 1: 编辑资料 (不含头像横幅，只改文字) -->
-    <el-dialog v-model="editDialogVisible" title="自定义频道" width="500px" style="border-radius: 12px;">
-      <el-form label-width="60px">
-        <el-form-item label="名称"><el-input v-model="editForm.username" /></el-form-item>
-        <el-form-item label="简介"><el-input v-model="editForm.description" type="textarea" :rows="3" /></el-form-item>
-      </el-form>
+    <!-- 弹窗部分保持不变 -->
+    <el-dialog v-model="playlistDialogVisible" title="新建播放列表" width="400px" style="border-radius: 12px;">
+      <el-input v-model="newPlaylistName" placeholder="输入列表名称" />
       <template #footer>
-        <el-button @click="editDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveProfile">保存</el-button>
+        <el-button type="primary" @click="handleCreatePlaylist">创建</el-button>
       </template>
     </el-dialog>
 
-    <!-- 引入裁剪组件 -->
-    <ImageCropper ref="avatarCropperRef" title="裁剪头像" :aspect-ratio="1" @upload="doUploadAvatar" />
-    <ImageCropper ref="bannerCropperRef" title="裁剪横幅" :aspect-ratio="4" @upload="doUploadBanner" />
-
-    <!-- 其他弹窗 (管理视频/播放列表等，保持不变) -->
-    <el-dialog v-model="manageDialogVisible" title="视频管理" width="800px" style="border-radius: 12px;">
-      <el-table :data="videoList" height="400">
-        <el-table-column prop="title" label="标题" />
-        <el-table-column label="操作" width="100"><template #default="scope"><el-button type="danger" size="small" @click="handleDeleteVideo(scope.row.id)">删除</el-button></template></el-table-column>
-      </el-table>
-    </el-dialog>
-    <el-dialog v-model="playlistDialogVisible" title="新建播放列表" width="400px" style="border-radius: 12px;">
-      <el-input v-model="newPlaylistName" placeholder="输入列表名称" /><template #footer><el-button type="primary" @click="handleCreatePlaylist">创建</el-button></template>
-    </el-dialog>
-    <el-dialog v-model="viewPlaylistDialogVisible" width="1000px" :show-close="true" class="yt-playlist-dialog" align-center>
-       <!-- 这里省略播放列表详情的复杂 HTML，请直接使用上一版的内容 -->
-       <div class="yt-pl-layout">
+    <el-dialog 
+      v-model="viewPlaylistDialogVisible" 
+      width="1000px" 
+      :show-close="true"
+      class="yt-playlist-dialog"
+      align-center
+    >
+      <div class="yt-pl-layout">
         <div class="yt-pl-sidebar" :style="{ backgroundImage: `url(${currentPlaylist?.cover_url})` }">
            <div class="yt-pl-bg-blur"></div>
            <div class="yt-pl-content">
-              <div class="yt-pl-cover-box"><img :src="currentPlaylist?.cover_url" class="yt-pl-cover-img"></div>
+              <div class="yt-pl-cover-box">
+                <img :src="currentPlaylist?.cover_url" class="yt-pl-cover-img">
+              </div>
               <h2 class="yt-pl-title">{{ currentPlaylist?.title }}</h2>
               <div class="yt-pl-owner">{{ author.username }}</div>
+              <div class="yt-pl-meta">
+                <span>{{ currentPlaylistVideos.length }}个视频</span> • <span>{{ currentPlaylist?.created_at }}更新</span>
+              </div>
               <div class="yt-pl-actions">
-                 <el-button type="primary" round class="play-all-btn" v-if="currentPlaylistVideos.length > 0" @click="goToVideo(currentPlaylistVideos[0].id, currentPlaylist.id)"><el-icon style="margin-right:5px"><VideoPlay /></el-icon> 播放全部</el-button>
-                 <el-button type="primary" round class="play-all-btn" v-if="isOwner" @click="addToPlVisible = true"><el-icon style="margin-right:5px"><Plus /></el-icon> 添加视频</el-button>
-                 <el-button type="danger" round class="play-all-btn delete-btn" v-if="isOwner" @click="handleDeletePlaylist(currentPlaylist.id)"><el-icon style="margin-right:5px"><Delete /></el-icon> 删除列表</el-button>
+                 <el-button type="primary" round class="play-all-btn" v-if="currentPlaylistVideos.length > 0" @click="goToVideo(currentPlaylistVideos[0].id, currentPlaylist.id)">
+                    <el-icon style="margin-right:5px"><VideoPlay /></el-icon> 播放全部
+                 </el-button>
+                 <el-button type="primary" round class="play-all-btn" v-if="isOwner" @click="addToPlVisible = true">
+                    <el-icon style="margin-right:5px"><Plus /></el-icon> 添加视频
+                 </el-button>
+                 <el-button type="danger" round class="play-all-btn delete-btn" v-if="isOwner" @click="handleDeletePlaylist(currentPlaylist.id)">
+                    <el-icon style="margin-right:5px"><Delete /></el-icon> 删除列表
+                 </el-button>
               </div>
            </div>
         </div>
         <div class="yt-pl-list-container">
-          <div v-if="currentPlaylistVideos.length > 0"><div v-for="(v, index) in currentPlaylistVideos" :key="v.id" class="yt-pl-item" @click="goToVideo(v.id, currentPlaylist.id)"><div class="yt-pl-index">{{ index + 1 }}</div><div class="yt-pl-thumb-box"><img :src="v.cover_url" class="yt-pl-thumb"></div><div class="yt-pl-info"><div class="yt-pl-v-title">{{ v.title }}</div></div><div class="yt-pl-item-action" v-if="isOwner" @click.stop="handleRemoveVideo(v.id)"><el-icon><Delete /></el-icon></div></div></div>
-          <el-empty v-else description="为空" />
+          <div v-if="currentPlaylistVideos.length > 0">
+            <div v-for="(v, index) in currentPlaylistVideos" :key="v.id" class="yt-pl-item" @click="goToVideo(v.id, currentPlaylist.id)">
+              <div class="yt-pl-index">{{ index + 1 }}</div>
+              <div class="yt-pl-thumb-box">
+                <img :src="v.cover_url" class="yt-pl-thumb">
+              </div>
+              <div class="yt-pl-info">
+                <div class="yt-pl-v-title">{{ v.title }}</div>
+                <div class="yt-pl-v-meta">
+                  <span>{{ author.username }}</span> • <span>{{ v.views }}次播放</span>
+                </div>
+              </div>
+              <div class="yt-pl-item-action" v-if="isOwner" @click.stop="handleRemoveVideo(v.id)">
+                <el-tooltip content="从列表中移除" placement="top"><el-icon><Delete /></el-icon></el-tooltip>
+              </div>
+            </div>
+          </div>
+          <el-empty v-else description="该播放列表为空" />
         </div>
       </div>
     </el-dialog>
+
     <el-dialog v-model="addToPlVisible" title="选择视频加入列表" width="500px" style="border-radius: 12px;">
-      <div class="mini-video-list"><div v-for="v in videoList" :key="v.id" class="mini-video-item" @click="addVideoToPl(v.id)"><img :src="v.cover_url" /><span>{{ v.title }}</span><el-icon><Plus /></el-icon></div></div>
+      <div class="mini-video-list">
+        <div v-for="v in videoList" :key="v.id" class="mini-video-item" @click="addVideoToPl(v.id)">
+          <img :src="v.cover_url" />
+          <span>{{ v.title }}</span>
+          <el-icon><Plus /></el-icon>
+        </div>
+      </div>
     </el-dialog>
 
+    <ImageCropper ref="avatarCropperRef" title="裁剪头像" :aspect-ratio="1" @upload="doUploadAvatar" />
+    <ImageCropper ref="bannerCropperRef" title="裁剪横幅" :aspect-ratio="4" @upload="doUploadBanner" />
   </div>
 </template>
 
@@ -162,45 +213,41 @@ import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '../store/user';
 import { getChannelInfo, toggleFollow, updateProfile, uploadAvatar, uploadBanner } from '../api/user';
 import { createPlaylist, deletePlaylist, addVideoToPlaylist, getPlaylistVideos, removeVideoFromPlaylist } from '../api/playlist'; 
-import { deleteVideo } from '../api/video';
 import { Search, Plus, List, VideoPlay, Camera, Delete } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-// 引入裁剪组件
 import ImageCropper from '../components/ImageCropper.vue';
 
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
 
-const authorId = route.params.id || userStore.userInfo.id;
 const author = ref({});
 const stats = ref({ fans: 0, is_following: false });
 const videoList = ref([]);
 const playlists = ref([]);
+const loading = ref(true); 
 
 const activeTab = ref('videos');
 const sortBy = ref('new');
 const searchQuery = ref('');
 
-// 弹窗状态
-const editDialogVisible = ref(false);
-const manageDialogVisible = ref(false);
 const playlistDialogVisible = ref(false);
 const viewPlaylistDialogVisible = ref(false);
 const addToPlVisible = ref(false);
 
-// 裁剪相关
 const avatarInput = ref(null);
 const bannerInput = ref(null);
 const avatarCropperRef = ref(null);
 const bannerCropperRef = ref(null);
 
-const editForm = ref({ username: '', description: '' });
 const newPlaylistName = ref('');
 const currentPlaylist = ref(null);
 const currentPlaylistVideos = ref([]);
 
-const isOwner = computed(() => userStore.token && String(userStore.userInfo.id) === String(route.params.id));
+const isOwner = computed(() => {
+  if (!userStore.token || !userStore.userInfo || !author.value || !author.value.id) return false;
+  return String(userStore.userInfo.id) === String(author.value.id);
+});
 
 const bannerStyle = computed(() => ({
   backgroundImage: author.value.banner ? `url(${author.value.banner})` : 'linear-gradient(90deg, #cc2b5e 0%, #753a88 100%)',
@@ -209,72 +256,77 @@ const bannerStyle = computed(() => ({
 }));
 
 const loadData = async () => {
+  loading.value = true;
+
+  // 【新增优化】如果是 ID 访问，且该 ID 是当前登录用户，直接用本地信息跳转，避免闪烁
+  if (route.params.id && !route.params.id.startsWith('@') && 
+      userStore.token && String(route.params.id) === String(userStore.userInfo.id)) {
+    router.replace(`/@${userStore.userInfo.username}`);
+    return;
+  }
+
+  const params = {
+    visitor_id: userStore.token ? userStore.userInfo.id : null,
+    sort_by: sortBy.value,
+    q: searchQuery.value
+  };
+
+  if (route.params.username) {
+    params.username = route.params.username;
+  } else if (route.params.id && route.params.id.startsWith('@')) {
+    params.username = route.params.id.substring(1);
+  } else if (route.params.id) {
+    params.author_id = route.params.id;
+  } else if (userStore.userInfo && userStore.userInfo.id) {
+    params.author_id = userStore.userInfo.id;
+  } else {
+    loading.value = false;
+    return;
+  }
+  
   try {
-    const res = await getChannelInfo({
-      author_id: route.params.id || userStore.userInfo.id,
-      visitor_id: userStore.token ? userStore.userInfo.id : null,
-      sort_by: sortBy.value,
-      q: searchQuery.value
-    });
+    const res = await getChannelInfo(params);
     if (res.data.code === 200) {
       const d = res.data.data;
+      
+      // 如果是用 ID 查到的，且 URL 还没变，就强制替换为 @username URL
+      if (d.author.username && !route.params.username && route.name !== 'ChannelHandle') {
+        router.replace(`/@${d.author.username}`);
+        return; 
+      }
+
       author.value = d.author;
       stats.value = d.stats;
       videoList.value = d.videos;
       playlists.value = d.playlists;
+      
+      loading.value = false;
     }
-  } catch (e) { console.error(e); }
-};
-
-// --- 裁剪与上传核心逻辑 ---
-const triggerAvatarSelect = () => avatarInput.value.click();
-const triggerBannerSelect = () => bannerInput.value.click();
-
-const onFileSelect = (e, type) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  // 打开对应的裁剪弹窗
-  if (type === 'avatar') {
-    avatarCropperRef.value.open(file);
-  } else {
-    bannerCropperRef.value.open(file);
+  } catch (e) { 
+    console.error(e); 
+    if (e.response && e.response.status === 404) {
+      ElMessage.error('找不到该用户');
+    }
+    loading.value = false;
   }
-  // 清空 input，允许重复选同一文件
-  e.target.value = ''; 
 };
 
-const doUploadAvatar = async (blob, done) => {
-  const formData = new FormData();
-  formData.append('file', blob, 'avatar.jpg');
+const handleSubscribe = async () => {
+  if (!userStore.token) return ElMessage.warning('请先登录');
   try {
-    const res = await uploadAvatar(formData);
+    const res = await toggleFollow({ follower_id: userStore.userInfo.id, followed_id: author.value.id });
     if (res.data.code === 200) {
-      author.value.avatar = res.data.url;
-      userStore.setLoginState(userStore.token, { ...userStore.userInfo, avatar: res.data.url }); // 更新全局 Store
-      ElMessage.success('头像更新成功');
-      done(); // 关闭弹窗
-    } else {
-      ElMessage.error(res.data.msg);
+      stats.value.is_following = res.data.is_following;
+      stats.value.fans = res.data.fans_count;
+      ElMessage.success(res.data.is_following ? '订阅成功' : '已取消订阅');
     }
-  } catch (e) { ElMessage.error('上传失败'); }
+  } catch (e) { ElMessage.error('操作失败'); }
 };
 
-const doUploadBanner = async (blob, done) => {
-  const formData = new FormData();
-  formData.append('file', blob, 'banner.jpg');
-  try {
-    const res = await uploadBanner(formData);
-    if (res.data.code === 200) {
-      author.value.banner = res.data.url;
-      ElMessage.success('横幅更新成功');
-      done();
-    }
-  } catch (e) { ElMessage.error('上传失败'); }
+const navigateToStudio = (page) => {
+  router.push(`/studio/${page}`);
 };
 
-// --- 其他业务逻辑 ---
-const handleSubscribe = async () => { if (!userStore.token) return ElMessage.warning('请先登录'); try { const res = await toggleFollow({ follower_id: userStore.userInfo.id, followed_id: route.params.id }); if (res.data.code === 200) { stats.value.is_following = res.data.is_following; stats.value.fans = res.data.fans_count; ElMessage.success(res.data.is_following ? '订阅成功' : '已取消订阅'); } } catch (e) { ElMessage.error('操作失败'); } };
 const openPlaylistDialog = () => { newPlaylistName.value = ''; playlistDialogVisible.value = true; };
 const handleCreatePlaylist = async () => { if (!newPlaylistName.value) return; const res = await createPlaylist({ title: newPlaylistName.value, user_id: userStore.userInfo.id }); if (res.data.code === 200) { ElMessage.success('创建成功'); loadData(); playlistDialogVisible.value = false; } };
 const handleDeletePlaylist = (id) => { ElMessageBox.confirm('确定删除？', '提示').then(async () => { await deletePlaylist(id); loadData(); viewPlaylistDialogVisible.value = false; }); };
@@ -282,16 +334,44 @@ const handleViewPlaylist = async (pl) => { currentPlaylist.value = pl; try { con
 const goToVideo = (vid, pid) => { if(pid) router.push({ path: `/video/${vid}`, query: { list: pid } }); else router.push(`/video/${vid}`); };
 const addVideoToPl = async (vid) => { const res = await addVideoToPlaylist({ playlist_id: currentPlaylist.value.id, video_id: vid }); if (res.data.code === 200) { ElMessage.success(res.data.msg); addToPlVisible.value = false; const refreshRes = await getPlaylistVideos(currentPlaylist.value.id); currentPlaylistVideos.value = refreshRes.data.data; loadData(); } };
 const handleRemoveVideo = async (vid) => { try { const res = await removeVideoFromPlaylist({ playlist_id: currentPlaylist.value.id, video_id: vid }); if (res.data.code === 200) { ElMessage.success('已移除'); currentPlaylistVideos.value = currentPlaylistVideos.value.filter(v => v.id !== vid); loadData(); } } catch (e) { ElMessage.error('移除失败'); } };
-const openEditDialog = () => { editForm.value = { username: author.value.username, description: author.value.description }; editDialogVisible.value = true; };
-const saveProfile = async () => { const res = await updateProfile({ user_id: userStore.userInfo.id, ...editForm.value }); if (res.data.code === 200) { ElMessage.success('保存成功'); author.value.username = res.data.data.username; author.value.description = res.data.data.description; userStore.setLoginState(userStore.token, res.data.data); editDialogVisible.value = false; } };
-const handleDeleteVideo = (id) => { ElMessageBox.confirm('确定删除？', '提示', { type: 'warning' }).then(async () => { await deleteVideo(id); loadData(); ElMessage.success('删除成功'); }); };
 
-watch(() => route.params.id, (newId) => { if(newId) { activeTab.value = 'videos'; searchQuery.value = ''; sortBy.value = 'new'; videoList.value = []; playlists.value = []; loadData(); } });
+const triggerAvatarSelect = () => avatarInput.value.click();
+const triggerBannerSelect = () => bannerInput.value.click();
+const onFileSelect = (e, type) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (type === 'avatar') avatarCropperRef.value.open(file);
+  else bannerCropperRef.value.open(file);
+  e.target.value = ''; 
+};
+const doUploadAvatar = async (blob, done) => {
+  const formData = new FormData(); formData.append('file', blob, 'avatar.jpg');
+  try { const res = await uploadAvatar(formData); if (res.data.code === 200) { author.value.avatar = res.data.url; userStore.setLoginState(userStore.token, { ...userStore.userInfo, avatar: res.data.url }); ElMessage.success('头像更新成功'); done(); } else { ElMessage.error(res.data.msg); } } catch (e) { ElMessage.error('上传失败'); }
+};
+const doUploadBanner = async (blob, done) => {
+  const formData = new FormData(); formData.append('file', blob, 'banner.jpg');
+  try { const res = await uploadBanner(formData); if (res.data.code === 200) { author.value.banner = res.data.url; ElMessage.success('横幅更新成功'); done(); } } catch (e) { ElMessage.error('上传失败'); }
+};
+
+watch(
+  () => [route.params.id, route.params.username],
+  ([newId, newUsername]) => {
+    if (newId || newUsername) {
+      activeTab.value = 'videos';
+      searchQuery.value = '';
+      sortBy.value = 'new';
+      videoList.value = [];
+      playlists.value = [];
+      loadData();
+    }
+  }
+);
+
 onMounted(() => loadData());
 </script>
 
 <style scoped>
-/* 保持原有样式，添加裁剪框容器样式 */
+/* 保持原有样式 */
 .channel-container { background: #fff; min-height: 100vh; padding-bottom: 40px; }
 .channel-layout { max-width: 1284px; margin: 0 auto; padding: 0 24px; }
 .channel-banner { height: 210px; background-color: #eee; border-radius: 16px; margin-top: 20px; position: relative; overflow: hidden; }

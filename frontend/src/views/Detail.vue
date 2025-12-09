@@ -6,18 +6,23 @@
         <!-- 左侧：播放器 + 信息 + 评论 -->
         <el-col :span="17" :xs="24">
           <div class="content-wrapper">
-            <!-- 播放器容器 -->
+            
+            <!-- 1. 播放器容器 -->
             <div class="video-container">
               <video 
                 ref="videoRef" :src="video.url" controls autoplay class="real-video"
                 @timeupdate="handleTimeUpdate" @play="onVideoPlay" @pause="onVideoPause">
               </video>
+              
+              <!-- 弹幕层 -->
               <div class="danmaku-layer" :style="{ animationPlayState: isVideoPaused ? 'paused' : 'running' }">
                 <div v-for="dm in activeDanmakus" :key="dm.id" class="danmaku-item"
                   :style="{ top: dm.top + '%', color: dm.color, animationDuration: dm.speed + 's', animationPlayState: isVideoPaused ? 'paused' : 'running' }">
                   {{ dm.text }}
                 </div>
               </div>
+              
+              <!-- 弹幕输入 -->
               <div class="danmaku-input-bar">
                 <el-color-picker v-model="danmakuColor" size="small" show-alpha />
                 <input v-model="danmakuText" class="dm-input" placeholder="发个弹幕..." @keyup.enter="fireDanmaku"/>
@@ -25,19 +30,23 @@
               </div>
             </div>
             
-            <!-- 视频信息区 -->
+            <!-- 2. 视频信息区 -->
             <div class="info-section">
               <h1 class="title">{{ video.title }}</h1>
               
               <div class="action-bar">
+                <!-- 左侧：作者信息 + 关注按钮 -->
                 <div class="left-meta">
-                  <div class="uploader-mini" @click="$router.push(`/channel/${video.uploader_id}`)">
+                  <!-- 【核心修复】跳转到 /@username -->
+                  <div class="uploader-mini" @click="$router.push(`/@${video.uploader_name}`)">
                     <el-avatar :size="40" :src="video.uploader_avatar" />
                     <div class="uploader-text">
                       <div class="name">{{ video.uploader_name }}</div>
                       <div class="subs">{{ channelStats.fans }} 位订阅者</div>
                     </div>
                   </div>
+                  
+                  <!-- 关注按钮 -->
                   <button 
                     class="yt-sub-btn" 
                     :class="{ subscribed: channelStats.is_following }"
@@ -47,6 +56,7 @@
                   </button>
                 </div>
                 
+                <!-- 右侧：点赞 & 收藏 -->
                 <div class="right-actions">
                   <div class="yt-like-btn" @click="toggleLike" :class="{ active: interaction.is_like }">
                     <el-icon size="20">
@@ -69,7 +79,7 @@
               </div>
             </div>
 
-            <!-- 评论区 -->
+            <!-- 3. 评论区 -->
             <div class="comment-section">
               <div class="comment-header">
                 <h3>{{ comments.length }} 条评论</h3>
@@ -78,6 +88,7 @@
                   <span>排序方式：{{ sortType === 'hot' ? '最热优先' : '最新优先' }}</span>
                 </div>
               </div>
+              
               <div class="comment-input">
                 <el-avatar :size="40" :src="userStore.userInfo.avatar || 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'" />
                 <div class="input-wrapper">
@@ -88,6 +99,8 @@
                   </div>
                 </div>
               </div>
+
+              <!-- 评论列表 -->
               <div class="comment-list">
                 <div v-for="c in comments" :key="c.id" class="comment-item">
                   <el-avatar :size="40" :src="c.user.avatar" class="c-avatar" />
@@ -95,8 +108,14 @@
                     <div v-if="c.is_pinned" class="pinned-badge">
                       <el-icon><Top /></el-icon> 由 {{ video.uploader_name }} 置顶
                     </div>
-                    <div class="c-header"><span class="c-user">@{{ c.user.username }}</span><span class="c-time">{{ c.time }}</span></div>
+
+                    <div class="c-header">
+                      <span class="c-user">@{{ c.user.username }}</span>
+                      <span class="c-time">{{ c.time }}</span>
+                    </div>
                     <div class="c-text">{{ c.content }}</div>
+                    
+                    <!-- 顶级评论操作栏 -->
                     <div class="c-actions">
                       <div class="c-action-btn" @click="handleLikeComment(c)" :class="{ 'is-liked': c.is_liked }">
                         <svg v-if="c.is_liked" style="width:16px;height:16px;margin-right:4px;" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-1.91l-.01-.01L23 10z"/></svg>
@@ -104,31 +123,62 @@
                         {{ c.likes || '' }}
                       </div>
                       <div class="c-action-btn" @click="openReply(c.id, c.user.username)">回复</div>
+                      
                       <el-dropdown v-if="isOwner" trigger="click" @command="handlePin(c.id)">
                         <span class="c-more-btn"><el-icon><MoreFilled /></el-icon></span>
                         <template #dropdown><el-dropdown-menu><el-dropdown-item>{{ c.is_pinned ? '取消置顶' : '置顶评论' }}</el-dropdown-item></el-dropdown-menu></template>
                       </el-dropdown>
                     </div>
+
+                    <!-- 回复输入框 -->
                     <div v-if="replyTargetId === c.id" class="reply-input-box">
-                      <el-input v-model="replyText" size="small" placeholder="写下你的回复..." />
-                      <div class="reply-btns"><el-button size="small" @click="replyTargetId = null">取消</el-button><el-button type="primary" size="small" @click="postComment(c.id)">回复</el-button></div>
+                      <el-input 
+                        v-model="replyText" 
+                        size="small" 
+                        placeholder="写下你的回复..." 
+                        ref="replyInputRef"
+                      />
+                      <div class="reply-btns">
+                        <el-button size="small" @click="replyTargetId = null">取消</el-button>
+                        <el-button type="primary" size="small" @click="postComment(c.id)">回复</el-button>
+                      </div>
                     </div>
+
+                    <!-- 子评论列表 -->
                     <div v-if="c.replies && c.replies.length > 0">
-                      <div class="replies-toggle" v-if="!c.expanded" @click="c.expanded = true"><el-icon><CaretBottom /></el-icon> 展开 {{ c.replies.length }} 条回复</div>
+                      <div class="replies-toggle" v-if="!c.expanded" @click="c.expanded = true">
+                        <el-icon><CaretBottom /></el-icon> 展开 {{ c.replies.length }} 条回复
+                      </div>
                       <div v-else>
                         <div v-for="r in c.replies" :key="r.id" class="reply-item">
                           <el-avatar :size="24" :src="r.user.avatar" class="r-avatar" />
-                          <div class="r-body"><div class="c-header"><span class="c-user">@{{ r.user.username }}</span><span class="c-time">{{ r.time }}</span></div><div class="c-text">{{ r.content }}</div>
-                            <div class="c-actions"><div class="c-action-btn" @click="handleLikeComment(r)" :class="{ 'is-liked': r.is_liked }"><svg v-if="r.is_liked" style="width:14px;height:14px;margin-right:4px;" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-1.91l-.01-.01L23 10z"/></svg><svg v-else style="width:14px;height:14px;margin-right:4px;" viewBox="0 0 24 24" fill="currentColor"><path d="M9 21h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.58 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2zM9 9l4.34-4.34L12 10h9v2l-3 7H9V9zM1 9h4v12H1z"/></svg>{{ r.likes || '' }}</div><div class="c-action-btn" @click="openReply(c.id, r.user.username)">回复</div></div>
+                          <div class="r-body">
+                            <div class="c-header">
+                              <span class="c-user">@{{ r.user.username }}</span>
+                              <span class="c-time">{{ r.time }}</span>
+                            </div>
+                            <div class="c-text">{{ r.content }}</div>
+                            <div class="c-actions">
+                              <div class="c-action-btn" @click="handleLikeComment(r)" :class="{ 'is-liked': r.is_liked }">
+                                <svg v-if="r.is_liked" style="width:14px;height:14px;margin-right:4px;" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-1.91l-.01-.01L23 10z"/></svg>
+                                <svg v-else style="width:14px;height:14px;margin-right:4px;" viewBox="0 0 24 24" fill="currentColor"><path d="M9 21h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.58 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2zM9 9l4.34-4.34L12 10h9v2l-3 7H9V9zM1 9h4v12H1z"/></svg>
+                                {{ r.likes || '' }}
+                              </div>
+                              <div class="c-action-btn" @click="openReply(c.id, r.user.username)">回复</div>
+                            </div>
                           </div>
                         </div>
-                        <div class="replies-toggle" @click="c.expanded = false"><el-icon><CaretTop /></el-icon> 收起</div>
+                        <div class="replies-toggle" @click="c.expanded = false">
+                          <el-icon><CaretTop /></el-icon> 收起
+                        </div>
                       </div>
                     </div>
+
                   </div>
                 </div>
               </div>
             </div>
+
           </div>
         </el-col>
 
@@ -164,7 +214,7 @@
               </div>
             </div>
 
-            <!-- 相关视频推荐 (排在播放列表下方) -->
+            <!-- 相关视频推荐 -->
             <div class="recommend-list">
               <div v-for="item in relatedVideos" :key="item.id" class="related-item" @click="goToVideo(item.id)">
                 <div class="related-cover-box"><img :src="item.cover_url" class="related-cover"/><span class="duration">10:24</span></div>
@@ -187,7 +237,7 @@ import { getVideoDetail, postAction, checkFavStatus } from '../api/video';
 import { getRelatedVideos } from '../api/recommend';
 import { getComments, sendComment, likeComment, pinComment, getDanmaku, sendDanmaku, checkInteractionStatus } from '../api/interaction';
 import { toggleFollow, getChannelInfo } from '../api/user';
-import { getPlaylistVideos } from '../api/playlist'; // 引入 API
+import { getPlaylistVideos } from '../api/playlist'; 
 import { ElMessage } from 'element-plus';
 import { Star, StarFilled, Sort, CaretBottom, CaretTop, MoreFilled, Top, VideoPlay } from '@element-plus/icons-vue';
 
@@ -239,14 +289,14 @@ const loadPageData = async (videoId) => {
     const recRes = await getRelatedVideos(videoId);
     relatedVideos.value = recRes.data.data;
 
-    // 2. 检查是否有 playlist 参数，如果有，加载播放列表
+    // 2. 检查是否有 playlist 参数
     if (route.query.list) {
       const plRes = await getPlaylistVideos(route.query.list);
       if (plRes.data.code === 200) {
         playlistVideos.value = plRes.data.data;
       }
     } else {
-      playlistVideos.value = []; // 清空防止残留
+      playlistVideos.value = []; 
     }
 
     loadComments();
@@ -270,7 +320,6 @@ const goToVideo = (vid, playlistId = null) => {
   if (playlistId) {
     router.push({ path: `/video/${vid}`, query: { list: playlistId } });
   } else {
-    // 如果之前有 list 参数，点击普通推荐时移除 list 参数
     router.push({ path: `/video/${vid}` });
   }
 };
@@ -366,8 +415,14 @@ onMounted(() => { if(route.params.id) loadPageData(route.params.id); });
 .replies-toggle:hover { background-color: #def1ff; }
 .reply-item { display: flex; gap: 10px; margin-top: 10px; margin-bottom: 10px; }
 
-/* 侧边栏整体容器 */
-.sidebar-content { display: flex; flex-direction: column; gap: 20px; }
+.recommend-list { display: flex; flex-direction: column; gap: 8px; }
+.related-item { display: flex; gap: 8px; cursor: pointer; }
+.related-cover-box { position: relative; width: 168px; height: 94px; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: #ddd; }
+.related-cover { width: 100%; height: 100%; object-fit: cover; }
+.duration { position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.8); color: white; font-size: 12px; padding: 1px 4px; border-radius: 4px; font-weight: 500; }
+.related-info { display: flex; flex-direction: column; gap: 4px; }
+.related-title { font-size: 14px; font-weight: 600; color: #0f0f0f; line-height: 20px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.related-meta { font-size: 12px; color: #606060; }
 
 /* 播放列表面板样式 */
 .playlist-panel {
@@ -375,6 +430,7 @@ onMounted(() => { if(route.params.id) loadPageData(route.params.id); });
   border-radius: 12px;
   background: #fff;
   overflow: hidden;
+  margin-bottom: 20px; /* 间距 */
 }
 .panel-header {
   background: #f2f2f2;
@@ -404,14 +460,4 @@ onMounted(() => { if(route.params.id) loadPageData(route.params.id); });
 .panel-info { flex: 1; min-width: 0; }
 .panel-v-title { font-size: 14px; font-weight: 600; color: #0f0f0f; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .panel-v-author { font-size: 12px; color: #606060; }
-
-/* 推荐视频列表 */
-.recommend-list { display: flex; flex-direction: column; gap: 8px; }
-.related-item { display: flex; gap: 8px; cursor: pointer; }
-.related-cover-box { position: relative; width: 168px; height: 94px; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: #ddd; }
-.related-cover { width: 100%; height: 100%; object-fit: cover; }
-.duration { position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.8); color: white; font-size: 12px; padding: 1px 4px; border-radius: 4px; font-weight: 500; }
-.related-info { display: flex; flex-direction: column; gap: 4px; }
-.related-title { font-size: 14px; font-weight: 600; color: #0f0f0f; line-height: 20px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.related-meta { font-size: 12px; color: #606060; }
 </style>

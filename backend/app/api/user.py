@@ -126,22 +126,32 @@ def toggle_follow():
 @swag_from(get_doc_path('channel_info.yml'))
 def get_channel_info():
     author_id = request.args.get('author_id')
+    username = request.args.get('username') # 【新增】接收用户名参数
     visitor_id = request.args.get('visitor_id')
     sort_by = request.args.get('sort_by', 'new')
     keyword = request.args.get('q', '')
     
-    author = User.query.get(author_id)
+    author = None
+    # 【核心修改】优先使用 ID 查询，如果没有 ID 则尝试使用 username 查询
+    if author_id:
+        author = User.query.get(author_id)
+    elif username:
+        author = User.query.filter_by(username=username).first()
+        
     if not author: return jsonify({'code': 404, 'msg': '用户不存在'}), 404
     
-    # 统计数据
-    fans_count = Follow.query.filter_by(followed_id=author_id).count()
+    # 拿到 author 对象后，统一使用 author.id 进行后续查询
+    target_id = author.id
+    
+    # 统计数据 (使用 target_id)
+    fans_count = Follow.query.filter_by(followed_id=target_id).count()
     is_following = False
     if visitor_id:
-        exists = Follow.query.filter_by(follower_id=visitor_id, followed_id=author_id).first()
+        exists = Follow.query.filter_by(follower_id=visitor_id, followed_id=target_id).first()
         is_following = bool(exists)
         
-    # 查询视频
-    query = Video.query.filter_by(uploader_id=author_id)
+    # 查询视频 (使用 target_id)
+    query = Video.query.filter_by(uploader_id=target_id)
     
     if keyword:
         rule = f"%{keyword}%"
@@ -156,8 +166,8 @@ def get_channel_info():
         
     videos = query.all()
     
-    # 查询播放列表 (最新创建的在前)
-    playlists = Playlist.query.filter_by(user_id=author_id).order_by(Playlist.created_at.desc()).all()
+    # 查询播放列表 (使用 target_id)
+    playlists = Playlist.query.filter_by(user_id=target_id).order_by(Playlist.created_at.desc()).all()
     
     return jsonify({
         'code': 200,
@@ -193,7 +203,7 @@ def get_following_list():
             
     return jsonify({'code': 200, 'data': result})
 
-# 6. 旧接口保留 (用于个人中心或我的收藏)
+# 旧接口保留
 @user_bp.route('/my_videos', methods=['GET'])
 def my_videos():
     user_id = request.args.get('user_id')

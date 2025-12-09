@@ -32,7 +32,7 @@
             <el-dropdown-menu>
               <div style="padding:10px;text-align:center;font-weight:bold">{{ userStore.userInfo.username }}</div>
               
-              <!-- 【新增】管理员入口 (仅管理员可见) -->
+              <!-- 管理员入口 -->
               <el-dropdown-item v-if="userStore.userInfo.is_admin" command="admin" divided style="color: #E6A23C; font-weight: bold;">
                 <el-icon><Monitor /></el-icon> 后台管理
               </el-dropdown-item>
@@ -64,7 +64,8 @@
 
         <div class="nav-section" v-if="userStore.token">
           <div class="section-title" v-if="!isCollapsed">订阅内容</div>
-          <div v-for="user in followingList" :key="user.id" class="nav-item user-item" @click="$router.push(`/channel/${user.id}`)">
+          <!-- 【核心修复】侧边栏点击关注用户，跳转到 /@username -->
+          <div v-for="user in followingList" :key="user.id" class="nav-item user-item" @click="$router.push(`/@${user.username}`)">
             <el-avatar :size="24" :src="user.avatar" />
             <span class="username">{{ user.username }}</span>
           </div>
@@ -109,8 +110,8 @@ const handleSearch = () => {
 const handleCommand = (cmd) => {
   if (cmd === 'logout') { userStore.logout(); router.push('/login'); }
   if (cmd === 'profile') router.push('/profile');
-  if (cmd === 'channel') router.push(`/channel/${userStore.userInfo.id}`);
-  // 【新增】跳转后台
+  // 【核心修复】下拉菜单跳转我的频道，使用 /@username
+  if (cmd === 'channel') router.push(`/@${userStore.userInfo.username}`);
   if (cmd === 'admin') router.push('/admin/dashboard');
 };
 
@@ -130,6 +131,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 样式保持不变 */
 .app-layout { height: 100vh; display: flex; flex-direction: column; }
 
 /* Header */
