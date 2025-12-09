@@ -68,3 +68,8 @@ export function publishVideo(data) {
     data
   });
 }
+
+export function updateVideo(data) {
+  // data: { id, user_id, title, description, visibility }
+  return request({ url: '/video/update', method: 'post', data });
+}

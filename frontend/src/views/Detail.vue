@@ -9,10 +9,14 @@
             
             <!-- 1. 播放器容器 -->
             <div class="video-container">
-              <video 
-                ref="videoRef" :src="video.url" controls autoplay class="real-video"
-                @timeupdate="handleTimeUpdate" @play="onVideoPlay" @pause="onVideoPause">
-              </video>
+              <CustomVideoPlayer 
+                ref="videoRef"
+                :src="video.url" 
+                :autoplay="true"
+                @timeupdate="handleTimeUpdate"
+                @play="onVideoPlay"
+                @pause="onVideoPause"
+              />
               
               <!-- 弹幕层 -->
               <div class="danmaku-layer" :style="{ animationPlayState: isVideoPaused ? 'paused' : 'running' }">
@@ -37,7 +41,6 @@
               <div class="action-bar">
                 <!-- 左侧：作者信息 + 关注按钮 -->
                 <div class="left-meta">
-                  <!-- 【核心修复】跳转到 /@username -->
                   <div class="uploader-mini" @click="$router.push(`/@${video.uploader_name}`)">
                     <el-avatar :size="40" :src="video.uploader_avatar" />
                     <div class="uploader-text">
@@ -46,7 +49,6 @@
                     </div>
                   </div>
                   
-                  <!-- 关注按钮 -->
                   <button 
                     class="yt-sub-btn" 
                     :class="{ subscribed: channelStats.is_following }"
@@ -70,11 +72,20 @@
                     <el-icon size="20" v-else><Star /></el-icon>
                     <span>{{ interaction.is_fav ? '已收藏' : '收藏' }}</span>
                   </div>
+
+                  <!-- 编辑按钮 -->
+                  <div v-if="isOwner || userStore.userInfo.is_admin" class="yt-action-btn" @click="goToEdit">
+                    <el-icon size="20"><Edit /></el-icon> <span>编辑</span>
+                  </div>
                 </div>
               </div>
               
               <div class="description-box">
-                <div class="desc-meta"><span>{{ video.views }}次观看</span> • <span>{{ formatTime(video.upload_time) }}</span></div>
+                <div class="desc-meta">
+                  <span>{{ video.views }}次观看</span> • 
+                  <!-- 修复：使用 formatDate -->
+                  <span>{{ formatDate(video.upload_time) }}</span>
+                </div>
                 <div class="desc-text">{{ video.description || '暂无简介' }}</div>
               </div>
             </div>
@@ -115,7 +126,6 @@
                     </div>
                     <div class="c-text">{{ c.content }}</div>
                     
-                    <!-- 顶级评论操作栏 -->
                     <div class="c-actions">
                       <div class="c-action-btn" @click="handleLikeComment(c)" :class="{ 'is-liked': c.is_liked }">
                         <svg v-if="c.is_liked" style="width:16px;height:16px;margin-right:4px;" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-1.91l-.01-.01L23 10z"/></svg>
@@ -130,7 +140,6 @@
                       </el-dropdown>
                     </div>
 
-                    <!-- 回复输入框 -->
                     <div v-if="replyTargetId === c.id" class="reply-input-box">
                       <el-input 
                         v-model="replyText" 
@@ -144,7 +153,6 @@
                       </div>
                     </div>
 
-                    <!-- 子评论列表 -->
                     <div v-if="c.replies && c.replies.length > 0">
                       <div class="replies-toggle" v-if="!c.expanded" @click="c.expanded = true">
                         <el-icon><CaretBottom /></el-icon> 展开 {{ c.replies.length }} 条回复
@@ -186,7 +194,7 @@
         <el-col :span="7" :xs="24">
           <div class="sidebar-content">
             
-            <!-- 【新增】播放列表卡片 (仅当 URL 带 list 参数时显示) -->
+            <!-- 播放列表卡片 -->
             <div v-if="playlistVideos.length > 0" class="playlist-panel">
               <div class="panel-header">
                 <div class="panel-title">正在播放</div>
@@ -217,8 +225,15 @@
             <!-- 相关视频推荐 -->
             <div class="recommend-list">
               <div v-for="item in relatedVideos" :key="item.id" class="related-item" @click="goToVideo(item.id)">
-                <div class="related-cover-box"><img :src="item.cover_url" class="related-cover"/><span class="duration">10:24</span></div>
-                <div class="related-info"><div class="related-title">{{ item.title }}</div><div class="related-meta">{{ item.uploader_name }}</div><div class="related-meta">{{ item.views }}次观看</div></div>
+                <div class="related-cover-box">
+                  <img :src="item.cover_url" class="related-cover"/>
+                  <span class="duration">{{ formatDuration(item.duration) }}</span>
+                </div>
+                <div class="related-info">
+                  <div class="related-title">{{ item.title }}</div>
+                  <div class="related-meta">{{ item.uploader_name }}</div>
+                  <div class="related-meta">{{ item.views }}次观看</div>
+                </div>
               </div>
             </div>
             
@@ -226,6 +241,7 @@
         </el-col>
       </el-row>
     </div>
+    <VideoEditModal ref="editModalRef" @saved="loadPageData(video.id)" />
   </div>
 </template>
 
@@ -239,7 +255,9 @@ import { getComments, sendComment, likeComment, pinComment, getDanmaku, sendDanm
 import { toggleFollow, getChannelInfo } from '../api/user';
 import { getPlaylistVideos } from '../api/playlist'; 
 import { ElMessage } from 'element-plus';
-import { Star, StarFilled, Sort, CaretBottom, CaretTop, MoreFilled, Top, VideoPlay } from '@element-plus/icons-vue';
+import { Star, StarFilled, Sort, CaretBottom, CaretTop, MoreFilled, Top, VideoPlay, Edit } from '@element-plus/icons-vue';
+import CustomVideoPlayer from '../components/CustomVideoPlayer.vue';
+import VideoEditModal from '../components/VideoEditModal.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -264,8 +282,10 @@ const allDanmakus = ref([]);
 const activeDanmakus = ref([]);
 const isVideoPaused = ref(false);
 
-// 播放列表数据
 const playlistVideos = ref([]);
+const currentVideoTime = ref(0); // 跟踪当前播放时间
+
+const editModalRef = ref(null);
 
 const isOwner = computed(() => {
   if (!video.value || !userStore.userInfo) return false;
@@ -279,17 +299,16 @@ const loadPageData = async (videoId) => {
     video.value = res.data.data;
     currentLikes.value = res.data.data.likes || 0;
     
+    // 获取频道信息
     const channelRes = await getChannelInfo({
       author_id: video.value.uploader_id,
       visitor_id: userStore.token ? userStore.userInfo.id : null
     });
     channelStats.value = channelRes.data.data.stats;
 
-    // 1. 加载相关推荐
     const recRes = await getRelatedVideos(videoId);
     relatedVideos.value = recRes.data.data;
 
-    // 2. 检查是否有 playlist 参数
     if (route.query.list) {
       const plRes = await getPlaylistVideos(route.query.list);
       if (plRes.data.code === 200) {
@@ -315,13 +334,17 @@ const loadPageData = async (videoId) => {
   }
 };
 
-// 统一跳转方法
 const goToVideo = (vid, playlistId = null) => {
   if (playlistId) {
     router.push({ path: `/video/${vid}`, query: { list: playlistId } });
   } else {
     router.push({ path: `/video/${vid}` });
   }
+};
+
+// 【核心修改】跳转到编辑页
+const goToEdit = () => {
+  editModalRef.value.open(video.value.id);
 };
 
 const handleSubscribe = async () => {
@@ -348,11 +371,21 @@ const handlePin = async (commentId) => { try { await pinComment({ user_id: userS
 const toggleLike = async () => { if (!userStore.token) return ElMessage.warning('请先登录'); const isLiking = !interaction.value.is_like; const type = isLiking ? 'like' : 'unlike'; try { interaction.value.is_like = isLiking; if (isLiking) { currentLikes.value += 1; } else { currentLikes.value -= 1; } await postAction({ user_id: userStore.userInfo.id, video_id: video.value.id, type }); } catch (e) { interaction.value.is_like = !isLiking; currentLikes.value = isLiking ? currentLikes.value - 1 : currentLikes.value + 1; ElMessage.error('操作失败'); } };
 const toggleFav = async () => { if (!userStore.token) return ElMessage.warning('请先登录'); const type = interaction.value.is_fav ? 'unfavorite' : 'favorite'; try { await postAction({ user_id: userStore.userInfo.id, video_id: video.value.id, type }); interaction.value.is_fav = !interaction.value.is_fav; } catch (e) { ElMessage.error('操作失败'); } };
 const loadDanmaku = async (vid) => { const res = await getDanmaku(vid); allDanmakus.value = res.data.data; };
-const fireDanmaku = async () => { if (!userStore.token) return ElMessage.warning('登录后发弹幕'); if (!danmakuText.value) return; const time = videoRef.value.currentTime; const text = danmakuText.value; const color = danmakuColor.value || '#FFFFFF'; await sendDanmaku({ user_id: userStore.userInfo.id, video_id: video.value.id, text, time, color }); pushDanmakuToScreen({ text, color }); danmakuText.value = ''; ElMessage.success('发射成功'); };
+const fireDanmaku = async () => { if (!userStore.token) return ElMessage.warning('登录后发弹幕'); if (!danmakuText.value) return; const time = currentVideoTime.value; const text = danmakuText.value; const color = danmakuColor.value || '#FFFFFF'; await sendDanmaku({ user_id: userStore.userInfo.id, video_id: video.value.id, text, time, color }); pushDanmakuToScreen({ text, color }); danmakuText.value = ''; ElMessage.success('发射成功'); };
 const pushDanmakuToScreen = (dm) => { const id = Date.now() + Math.random(); activeDanmakus.value.push({ id, text: dm.text, color: dm.color, top: Math.random() * 80, speed: 5 + Math.random() * 5 }); setTimeout(() => { activeDanmakus.value = activeDanmakus.value.filter(d => d.id !== id); }, 10000); };
-const handleTimeUpdate = (e) => { const currentTime = e.target.currentTime; allDanmakus.value.forEach(dm => { if (Math.abs(dm.time - currentTime) < 0.5 && !dm.shown) { pushDanmakuToScreen(dm); dm.shown = true; } }); };
+const handleTimeUpdate = (time) => { currentVideoTime.value = time; allDanmakus.value.forEach(dm => { if (Math.abs(dm.time - time) < 0.5 && !dm.shown) { pushDanmakuToScreen(dm); dm.shown = true; } }); };
 const formatCount = (num) => num >= 10000 ? (num / 10000).toFixed(1) + '万' : num;
-const formatTime = (timeStr) => timeStr ? timeStr.split(' ')[0] : '';
+
+// 时间格式化 (YYYY-MM-DD)
+const formatDate = (timeStr) => timeStr ? timeStr.split(' ')[0] : '';
+
+// 时长格式化 (MM:SS)
+const formatDuration = (seconds) => {
+  if (!seconds) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
 
 watch(() => route.params.id, (newId) => { if(newId) loadPageData(newId); });
 onMounted(() => { if(route.params.id) loadPageData(route.params.id); });
@@ -365,7 +398,7 @@ onMounted(() => { if(route.params.id) loadPageData(route.params.id); });
 .danmaku-layer { position: absolute; top: 0; left: 0; width: 100%; height: 85%; pointer-events: none; overflow: hidden; }
 .danmaku-item { position: absolute; right: -100px; white-space: nowrap; font-size: 20px; font-weight: bold; text-shadow: 1px 1px 2px black; animation-name: danmaku-move; animation-timing-function: linear; will-change: transform, left; }
 @keyframes danmaku-move { from { transform: translateX(0); left: 100%; } to { transform: translateX(-200%); left: -100%; } }
-.danmaku-input-bar { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 30px; opacity: 0; transition: opacity 0.3s; z-index: 10;}
+.danmaku-input-bar { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 30px; opacity: 0; transition: opacity 0.3s; z-index: 10;}
 .video-container:hover .danmaku-input-bar { opacity: 1; }
 .dm-input { background: transparent; border: none; color: white; width: 200px; outline: none; font-size: 14px; }
 .dm-send-btn { background: #409EFF; border: none; color: white; border-radius: 15px; padding: 5px 15px; cursor: pointer; font-size: 12px; }
@@ -430,7 +463,7 @@ onMounted(() => { if(route.params.id) loadPageData(route.params.id); });
   border-radius: 12px;
   background: #fff;
   overflow: hidden;
-  margin-bottom: 20px; /* 间距 */
+  margin-bottom: 20px;
 }
 .panel-header {
   background: #f2f2f2;

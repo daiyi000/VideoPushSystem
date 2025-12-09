@@ -1,11 +1,11 @@
 import os
-from flasgger import swag_from
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func
-from datetime import datetime, timedelta
-from ..models import User, Video, ActionLog, db
+from flasgger import swag_from
+from ..models import User, Video, ActionLog, db, Comment, Danmaku, playlist_video
 
 admin_bp = Blueprint('admin', __name__)
+
 def get_doc_path(filename):
     return os.path.join(os.path.dirname(__file__), '../docs/admin', filename)
 
@@ -19,8 +19,6 @@ def get_stats():
     pending_videos = Video.query.filter_by(status=0).count()
     
     # B. 每日新增用户 (最近7天)
-    # MySQL 使用 func.date(), SQLite 使用 func.date() 或 strftime
-    # 这里假设使用 MySQL
     daily_users = db.session.query(
         func.date(User.created_at).label('date'), 
         func.count(User.id)
@@ -88,17 +86,40 @@ def audit_video():
     db.session.commit()
     return jsonify({'code': 200, 'msg': '操作成功'})
 
+# 4. 管理员删除视频 (包含级联删除逻辑)
 @admin_bp.route('/video/delete', methods=['POST'])
 @swag_from(get_doc_path('delete_video.yml'))
 def delete_video_admin():
     data = request.get_json()
-    video = Video.query.get(data.get('id'))
+    video_id = data.get('id')
+    
+    video = Video.query.get(video_id)
     if video:
-        db.session.delete(video)
-        db.session.commit()
-    return jsonify({'code': 200, 'msg': '删除成功'})
+        try:
+            # 1. 删除播放列表关联
+            db.session.execute(playlist_video.delete().where(playlist_video.c.video_id == video_id))
+            
+            # 2. 删除弹幕
+            Danmaku.query.filter_by(video_id=video_id).delete()
+            
+            # 3. 删除评论
+            Comment.query.filter_by(video_id=video_id).delete()
+            
+            # 4. 删除行为日志 (点赞/历史)
+            ActionLog.query.filter_by(video_id=video_id).delete()
+            
+            # 5. 最后删除视频本体
+            db.session.delete(video)
+            db.session.commit()
+            return jsonify({'code': 200, 'msg': '删除成功'})
+        except Exception as e:
+            db.session.rollback()
+            print(f"删除失败: {e}")
+            return jsonify({'code': 500, 'msg': '删除失败，数据库错误'})
+            
+    return jsonify({'code': 404, 'msg': '视频不存在'})
 
-# 4. 用户管理 (列表 + 封禁)
+# 5. 用户管理 (列表 + 搜索)
 @admin_bp.route('/users', methods=['GET'])
 @swag_from(get_doc_path('users.yml'))
 def get_admin_users():
@@ -110,6 +131,7 @@ def get_admin_users():
     users = query.all()
     return jsonify({'code': 200, 'data': [u.to_dict() for u in users]})
 
+# 6. 用户封禁/解封
 @admin_bp.route('/user/ban', methods=['POST'])
 @swag_from(get_doc_path('ban_user.yml'))
 def ban_user():

@@ -54,27 +54,28 @@ class Video(db.Model):
     category = db.Column(db.String(50))
     tags = db.Column(db.String(128)) 
     views = db.Column(db.Integer, default=0)
-    status = db.Column(db.Integer, default=0) # 0=待审核, 1=已通过, 2=已下架
+    
+    duration = db.Column(db.Integer, default=0)
+    
+    status = db.Column(db.Integer, default=0) # 0=待审核, 1=已发布, 2=已下架
+    visibility = db.Column(db.String(20), default='public') # public/private
     
     upload_time = db.Column(db.DateTime, default=datetime.utcnow)
     uploader_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     
-    # 【核心修复】建立与 User 的关联，方便直接获取作者信息
     uploader = db.relationship('User', backref='videos')
 
     def to_dict(self):
-        # 即使 uploader 被删了，也要处理空值防止报错
         author_name = self.uploader.username if self.uploader else '未知用户'
         author_avatar = self.uploader.avatar if self.uploader else ''
-        
         return {
             'id': self.id, 'title': self.title, 'description': self.description,
             'url': self.url, 'cover_url': self.cover_url, 'category': self.category,
-            'views': self.views, 'tags': self.tags,
-            'status': self.status,
+            'views': self.views, 'tags': self.tags, 'status': self.status,
+            'visibility': self.visibility, 
+            'duration': self.duration, # 返回时长
             'upload_time': self.upload_time.strftime('%Y-%m-%d %H:%M'),
             'uploader_id': self.uploader_id,
-            # 【核心修复】返回作者头像和昵称，供主页显示
             'uploader_name': author_name,
             'uploader_avatar': author_avatar
         }

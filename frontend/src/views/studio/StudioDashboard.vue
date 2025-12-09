@@ -26,15 +26,21 @@
       <div class="summary-body">
         <div class="big-stat">
           <div class="label">当前订阅者人数</div>
-          <div class="value">{{ fanCount }}</div>
+          <!-- 【修复】正确绑定 total_fans -->
+          <div class="value">{{ stats.total_fans || 0 }}</div>
         </div>
         <el-divider />
         <div class="stat-summary">
           <div class="label">摘要</div>
-          <div class="sub-label">过去 28 天</div>
+          <div class="sub-label">历史累计数据</div>
           <div class="stat-row-simple">
             <span>观看次数</span>
             <span class="val">{{ stats.total_views }}</span>
+          </div>
+           <div class="stat-row-simple">
+             <span>获赞次数</span>
+             <!-- 【新增】展示获赞 -->
+             <span class="val">{{ stats.total_likes }}</span>
           </div>
           <div class="stat-row-simple">
              <span>视频数量</span>
@@ -57,10 +63,8 @@ import { View } from '@element-plus/icons-vue';
 
 const userStore = useUserStore();
 const stats = ref({});
-const fanCount = ref(0); // 这个数据在channel_info里，这里简化展示
 
 const loadData = async () => {
-  // 获取统计
   const res = await request.get(`/video/creator/stats?user_id=${userStore.userInfo.id}`);
   if (res.data.code === 200) {
     stats.value = res.data.data;
@@ -73,16 +77,12 @@ onMounted(() => loadData());
 .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
 .card { background: #fff; border: 1px solid #e5e5e5; border-radius: 6px; overflow: hidden; }
 .card-header { padding: 16px 24px; font-weight: 500; font-size: 16px; border-bottom: 1px solid #f0f0f0; }
-
-/* 视频快照 */
 .video-snapshot { grid-column: span 1; }
 .snapshot-content { padding: 20px; }
 .thumb-box { margin-bottom: 15px; }
 .thumb-box img { width: 100%; border-radius: 4px; aspect-ratio: 16/9; object-fit: cover; }
 .v-title { margin-top: 10px; font-size: 14px; color: #0f0f0f; line-height: 1.4; }
 .stat-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; color: #606060; font-size: 14px; }
-
-/* 分析摘要 */
 .analytics-summary { grid-column: span 1; }
 .summary-body { padding: 24px; }
 .big-stat .label { font-size: 14px; color: #606060; }
