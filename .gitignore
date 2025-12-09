@@ -1,76 +1,56 @@
-==========================
-
-1. Python / Flask 后端
-
-==========================
-
-字节码缓存
-
-pycache/
+# ==========================
+# 1. Python / Flask 后端
+# ==========================
+# 字节码缓存
+__pycache__/
 *.py[cod]
 *$py.class
 
-虚拟环境
-
+# 虚拟环境
 venv/
 .venv/
 env/
 ENV/
 
-分发与打包
-
+# 分发与打包
 dist/
 build/
 *.egg-info/
 
-数据库 (如果是 SQLite)
-
+# 数据库 (如果是 SQLite)
 *.sqlite
 *.sqlite3
 *.db
 
-环境变量 (包含敏感信息)
-
+# 环境变量 (包含敏感信息)
 .env
 .flaskenv
 
-日志
-
+# 日志
 *.log
 
-==========================
-
-2. Node.js / Vue 前端
-
-==========================
-
-依赖包 (体积巨大，绝对不要提交)
-
+# ==========================
+# 2. Node.js / Vue 前端
+# ==========================
+# 依赖包 (体积巨大，绝对不要提交)
 node_modules/
 
-构建输出目录
-
+# 构建输出目录
 frontend/dist/
 
-日志
-
+# 日志
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-临时文件
-
+# 临时文件
 .eslintcache
 
-==========================
-
-3. 大文件与媒体资源 (核心修改)
-
-==========================
-
-忽略所有图片文件 (避免上传测试用的高清图)
-
+# ==========================
+# 3. 大文件与媒体资源 (核心修改)
+# ==========================
+# 忽略所有图片文件 (避免上传测试用的高清图)
 *.jpg
 *.jpeg
 *.png
@@ -81,8 +61,7 @@ pnpm-debug.log*
 *.tiff
 *.ico
 
-忽略所有视频文件 (避免 GitHub 100MB 限制报错)
-
+# 忽略所有视频文件 (避免 GitHub 100MB 限制报错)
 *.mp4
 *.mov
 *.avi
@@ -92,44 +71,32 @@ pnpm-debug.log*
 *.wmv
 *.m4v
 
-==========================
-
-4. 项目特定上传目录
-
-==========================
-
-忽略用户上传的具体文件
-
+# ==========================
+# 4. 项目特定上传目录
+# ==========================
+# 忽略用户上传的具体文件
 backend/app/static/uploads/*
 backend/app/static/covers/*
 backend/app/static/avatars/*
 
-但保留文件夹本身 (git 默认不追踪空文件夹，需要保留一个 .gitkeep)
-
+# 但保留文件夹本身 (git 默认不追踪空文件夹，需要保留一个 .gitkeep)
 !backend/app/static/uploads/.gitkeep
 !backend/app/static/covers/.gitkeep
 !backend/app/static/avatars/.gitkeep
 
-==========================
-
-5. IDE 与 操作系统文件
-
-==========================
-
-VS Code
-
+# ==========================
+# 5. IDE 与 操作系统文件
+# ==========================
+# VS Code
 .vscode/
 
-IntelliJ / PyCharm
-
+# IntelliJ / PyCharm
 .idea/
 
-Mac OS
-
+# Mac OS
 .DS_Store
 
-Windows
-
+# Windows
 Thumbs.db
 ehthumbs.db
 Desktop.ini
