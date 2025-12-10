@@ -57,8 +57,11 @@ class Video(db.Model):
     
     duration = db.Column(db.Integer, default=0)
     
-    status = db.Column(db.Integer, default=0) # 0=待审核, 1=已发布, 2=已下架
-    visibility = db.Column(db.String(20), default='public') # public/private
+    # 【新增】是否为 Shorts 短视频
+    is_short = db.Column(db.Boolean, default=False)
+    
+    status = db.Column(db.Integer, default=0) 
+    visibility = db.Column(db.String(20), default='public')
     
     upload_time = db.Column(db.DateTime, default=datetime.utcnow)
     uploader_id = db.Column(db.Integer, db.ForeignKey('users.id'))
@@ -73,11 +76,10 @@ class Video(db.Model):
             'url': self.url, 'cover_url': self.cover_url, 'category': self.category,
             'views': self.views, 'tags': self.tags, 'status': self.status,
             'visibility': self.visibility, 
-            'duration': self.duration, # 返回时长
+            'duration': self.duration,
+            'is_short': self.is_short, # 返回标记
             'upload_time': self.upload_time.strftime('%Y-%m-%d %H:%M'),
-            'uploader_id': self.uploader_id,
-            'uploader_name': author_name,
-            'uploader_avatar': author_avatar
+            'uploader_id': self.uploader_id, 'uploader_name': author_name, 'uploader_avatar': author_avatar
         }
 
 # 3. 行为日志
@@ -89,6 +91,8 @@ class ActionLog(db.Model):
     action_type = db.Column(db.String(20)) 
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     weight = db.Column(db.Integer, default=1)
+    progress = db.Column(db.Integer, default=0)
+    
     user = db.relationship('User', back_populates='logs')
 
 # 4. 评论

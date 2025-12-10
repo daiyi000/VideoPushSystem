@@ -22,12 +22,24 @@ def allowed_file(filename):
 def generate_auto_thumbnails(video_path, output_folder, file_prefix):
     thumbnails = []
     duration = 0
+    is_short = False
+    
     try:
         cap = cv2.VideoCapture(video_path)
+        
+        # 获取视频元数据
         fps = cap.get(cv2.CAP_PROP_FPS)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        
         if fps > 0:
             duration = int(total_frames / fps)
+            
+        # 【核心逻辑】判断是否为 Shorts: 时长 <= 60秒 且 高 >= 宽
+        if duration <= 60 and height >= width:
+            is_short = True
+            
         percentages = [0.2, 0.5, 0.8]
         for idx, pct in enumerate(percentages):
             target_frame = int(total_frames * pct)
@@ -42,9 +54,10 @@ def generate_auto_thumbnails(video_path, output_folder, file_prefix):
         cap.release()
     except Exception as e:
         print(f"视频处理失败: {e}")
-    return thumbnails, duration
+    
+    return thumbnails, duration, is_short
 
-# 1. 第一步：上传视频文件
+# 1. 上传接口
 @video_bp.route('/upload_file', methods=['POST'])
 @swag_from(get_doc_path('upload_file.yml'))
 def upload_video_file():
@@ -55,7 +68,6 @@ def upload_video_file():
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
         timestamp = int(time.time())
-        
         static_folder = os.path.join(os.getcwd(), 'app/static')
         upload_folder = os.path.join(static_folder, 'uploads')
         cover_folder = os.path.join(static_folder, 'covers')
@@ -69,10 +81,10 @@ def upload_video_file():
         base_url = "http://localhost:5000"
         video_url = f"{base_url}/static/uploads/{new_video_name}"
         
-        auto_covers, duration = generate_auto_thumbnails(video_path, cover_folder, f"{timestamp}_{filename}")
+        # 自动生成封面并判断是否为 Short
+        auto_covers, duration, is_short = generate_auto_thumbnails(video_path, cover_folder, f"{timestamp}_{filename}")
         default_cover = auto_covers[0] if auto_covers else "https://via.placeholder.com/300x200"
 
-        # 【核心修改】初始状态设为 -1 (草稿)，防止刚上传就被管理员看到
         video = Video(
             title=file.filename,
             description="",
@@ -80,6 +92,7 @@ def upload_video_file():
             cover_url=default_cover,
             uploader_id=uploader_id,
             duration=duration,
+            is_short=is_short, # 存入数据库
             status=-1, 
             visibility='private' 
         )
@@ -93,22 +106,20 @@ def upload_video_file():
                 'id': video.id,
                 'url': video.url,
                 'title': video.title,
-                'auto_covers': auto_covers
+                'auto_covers': auto_covers,
+                'is_short': is_short
             }
         })
     return jsonify({'code': 400, 'msg': '格式不支持'})
 
-# 2. 第二步：发布/保存视频
+# ... (publish, update, delete, action 等其他接口保持不变) ...
+
 @video_bp.route('/publish', methods=['POST'])
 @swag_from(get_doc_path('publish.yml'))
 def publish_video():
     data = request.get_json()
-    video_id = data.get('id')
-    action = data.get('action') # 'draft' or 'publish'
-
-    video = Video.query.get(video_id)
+    video = Video.query.get(data.get('id'))
     if not video: return jsonify({'code': 404, 'msg': '视频不存在'})
-    
     if 'title' in data: video.title = data['title']
     if 'description' in data: video.description = data['description']
     if 'category' in data: video.category = data['category']
@@ -116,28 +127,26 @@ def publish_video():
     if 'cover_url' in data: video.cover_url = data['cover_url']
     if 'visibility' in data: video.visibility = data['visibility']
     
-    # 【核心修改】根据动作设置状态
+    action = data.get('action')
     if action == 'draft':
-        video.status = -1 # 草稿
+        video.status = -1
         msg = '已保存为草稿'
     else:
-        video.status = 0 # 提交审核
+        video.status = 0
         msg = '发布成功，等待审核'
     
     db.session.commit()
     return jsonify({'code': 200, 'msg': msg})
 
-# 3. 编辑视频
 @video_bp.route('/update', methods=['POST'])
 def update_video():
     data = request.get_json()
     video_id = data.get('id')
     user_id = data.get('user_id')
-    action = data.get('action') # 获取动作参数
+    action = data.get('action')
 
     video = Video.query.get(video_id)
     if not video: return jsonify({'code': 404, 'msg': '视频不存在'})
-    
     current_user = User.query.get(user_id)
     if not current_user or (str(current_user.id) != str(video.uploader_id) and not current_user.is_admin):
          return jsonify({'code': 403, 'msg': '无权操作'})
@@ -149,20 +158,16 @@ def update_video():
     if 'tags' in data: video.tags = data['tags']
     if 'cover_url' in data: video.cover_url = data['cover_url']
     
-    # 【核心修改】状态控制逻辑
     if action == 'draft':
-        video.status = -1 # 强制转为草稿
+        video.status = -1
         msg = '已撤回为草稿'
     else:
-        # 如果不是显式设为草稿，且之前不是草稿，则重置为审核中
-        if video.status != -1:
-            video.status = 0
+        if video.status != -1: video.status = 0
         msg = '更新成功'
     
     db.session.commit()
     return jsonify({'code': 200, 'msg': msg})
 
-# 4. 获取视频列表
 @video_bp.route('/list', methods=['GET'])
 @swag_from(get_doc_path('list.yml'))
 def get_video_list():
@@ -176,7 +181,6 @@ def get_video_list():
     videos = query.order_by(Video.upload_time.desc()).all()
     return jsonify({'code': 200, 'data': [v.to_dict() for v in videos]})
 
-# 5. 获取详情
 @video_bp.route('/<int:video_id>', methods=['GET'])
 @swag_from(get_doc_path('detail.yml'))
 def get_video_detail(video_id):
@@ -205,7 +209,6 @@ def get_video_detail(video_id):
     video_data['likes'] = likes_count
     return jsonify({'code': 200, 'data': video_data})
 
-# 6. 删除视频
 @video_bp.route('/delete/<int:video_id>', methods=['DELETE'])
 def delete_video(video_id):
     video = Video.query.get(video_id)
@@ -220,9 +223,8 @@ def delete_video(video_id):
         return jsonify({'code': 200, 'msg': '删除成功'})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'code': 500, 'msg': '删除失败，数据库错误'})
+        return jsonify({'code': 500, 'msg': '删除失败'})
 
-# 7. 交互操作
 @video_bp.route('/action', methods=['POST'])
 @swag_from(get_doc_path('action.yml'))
 def video_action():
@@ -230,9 +232,27 @@ def video_action():
     user_id = data.get('user_id')
     video_id = data.get('video_id')
     action_type = data.get('type')
+    
     if action_type == 'view':
+        # 查找今天是否已经看过，如果看过只更新时间，不新增记录（或者允许新增）
+        # 这里为了简单，每次打开详情页都算一次 view，但 progress 记录在最新的一条上
         log = ActionLog(user_id=user_id, video_id=video_id, action_type='view')
         db.session.add(log)
+        
+    elif action_type == 'progress':
+        # 【新增】更新观看进度
+        progress = data.get('progress', 0)
+        # 找到该用户对该视频最近的一条 view 记录
+        log = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='view')\
+                             .order_by(ActionLog.timestamp.desc()).first()
+        if log:
+            log.progress = int(progress)
+            log.timestamp = datetime.utcnow() # 更新最后观看时间
+        else:
+            # 如果没有记录（异常情况），补一条
+            log = ActionLog(user_id=user_id, video_id=video_id, action_type='view', progress=int(progress))
+            db.session.add(log)
+
     elif action_type == 'favorite':
         exists = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='favorite').first()
         if not exists:
@@ -247,6 +267,7 @@ def video_action():
             db.session.add(log)
     elif action_type == 'unlike':
         ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='like').delete()
+        
     db.session.commit()
     return jsonify({'code': 200, 'msg': '操作成功'})
 
@@ -257,7 +278,6 @@ def check_fav():
     exists = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='favorite').first()
     return jsonify({'is_fav': bool(exists)})
 
-# 8. 创作者数据统计
 @video_bp.route('/creator/stats', methods=['GET'])
 def get_creator_stats():
     user_id = request.args.get('user_id')

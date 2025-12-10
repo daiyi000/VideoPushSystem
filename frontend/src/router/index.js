@@ -28,6 +28,8 @@ import StudioContent from '../views/studio/StudioContent.vue';
 import StudioAnalytics from '../views/studio/StudioAnalytics.vue';
 import StudioCustomization from '../views/studio/StudioCustomization.vue';
 
+import Shorts from '../views/Shorts.vue';
+
 const routes = [
   // 登录页
   { path: '/login', name: 'Login', component: Login },
@@ -41,11 +43,9 @@ const routes = [
       { path: 'upload', name: 'Upload', component: Upload },
       { path: 'video/:id', name: 'Detail', component: Detail },
       { path: 'profile', name: 'Profile', component: Profile },
-      // 原有的 ID 访问方式
       { path: 'channel/:id', name: 'Channel', component: Channel },
-      // 【新增】支持 Handle 访问 (例如: /@bbcnewschinese)
-      // 这将复用 Channel 组件，组件内需要处理 route.params.username
-      { path: '@:username', name: 'ChannelHandle', component: Channel }
+      { path: '@:username', name: 'ChannelHandle', component: Channel },
+      { path: 'shorts/:id', name: 'Shorts', component: Shorts },
     ]
   },
 
@@ -84,6 +84,8 @@ const routes = [
     name: 'NotFound', 
     component: NotFound 
   },
+
+  
 ];
 
 const router = createRouter({

@@ -1,5 +1,6 @@
 import random
 from app import create_app, db
+# 引入所有相关模型
 from app.models import User, Video, ActionLog, Follow, Comment, Danmaku, Playlist, CommentLike, EmailCaptcha, playlist_video
 from datetime import datetime, timedelta
 
@@ -9,7 +10,7 @@ def seed():
     with app.app_context():
         print("正在清空旧数据...")
         
-        # 1. 清理数据
+        # 1. 清理数据 (严格顺序)
         db.session.query(CommentLike).delete()
         db.session.execute(playlist_video.delete())
         
@@ -49,7 +50,7 @@ def seed():
         tags_pool = ['Python', 'Vue', 'Flask', 'AI', '美食', '旅行', '搞笑', 'Vlog', '教程', '编程']
         
         videos = []
-        for i in range(1, 51):
+        for i in range(1, 61): # 生成更多视频
             cat = random.choice(categories)
             tag_sample = ",".join(random.sample(tags_pool, 2)) 
             uploader = random.choice(users)
@@ -57,8 +58,20 @@ def seed():
             status = random.choices([1, 0, 2], weights=[8, 1, 1])[0]
             visibility = random.choices(['public', 'private'], weights=[9, 1])[0]
             
-            # 【优化】更换为更稳定的占位图服务
+            # 【新增】Shorts 逻辑
+            # 20% 概率生成短视频 (时长<=60s)
+            is_short = False
+            duration = random.randint(60, 900) # 默认长视频
+            
+            if random.random() < 0.2:
+                is_short = True
+                duration = random.randint(5, 59) # 短视频时长
+            
+            # 使用更稳定的占位图
             cover_url = f'https://placehold.co/300x200/EEE/31343C?text=Video_{i}'
+            if is_short:
+                 # 竖屏封面模拟
+                 cover_url = f'https://placehold.co/200x350/EEE/31343C?text=Short_{i}'
 
             v = Video(
                 title=f'【{cat}】测试视频_{i} - {tag_sample}',
@@ -69,7 +82,8 @@ def seed():
                 tags=tag_sample,
                 uploader_id=uploader.id,
                 views=random.randint(100, 10000),
-                duration=random.randint(60, 600), 
+                duration=duration,
+                is_short=is_short,
                 status=status,
                 visibility=visibility,
                 upload_time=datetime.utcnow() - timedelta(days=random.randint(0, 60))
@@ -79,7 +93,7 @@ def seed():
         db.session.commit()
 
         print("3. 生成互动数据...")
-        # ... (互动数据生成逻辑保持不变) ...
+        # 关注
         for u in users:
             targets = random.sample(users, k=random.randint(0, 3))
             for target in targets:
@@ -87,26 +101,30 @@ def seed():
                     f = Follow(follower_id=u.id, followed_id=target.id)
                     db.session.add(f)
         
-        for _ in range(300):
+        # 观看记录 (带进度)
+        for _ in range(400):
             user = random.choice(users)
             video = random.choice(videos)
             action_time = datetime.utcnow() - timedelta(days=random.randint(0, 30))
             
-            log_view = ActionLog(user_id=user.id, video_id=video.id, action_type='view', timestamp=action_time)
+            # 生成随机观看进度
+            progress = 0
+            if video.duration > 0:
+                # 随机看了 10% 到 90%
+                progress = int(video.duration * random.uniform(0.1, 0.9))
+                
+            log_view = ActionLog(
+                user_id=user.id, 
+                video_id=video.id, 
+                action_type='view', 
+                timestamp=action_time,
+                progress=progress # 记录进度
+            )
             db.session.add(log_view)
             
             if random.random() < 0.3:
                 log_like = ActionLog(user_id=user.id, video_id=video.id, action_type='like', weight=3, timestamp=action_time)
                 db.session.add(log_like)
-            
-            if random.random() < 0.2:
-                comment = Comment(
-                    content=f"这是 {user.username} 对视频 {video.id} 的精彩评论！",
-                    user_id=user.id,
-                    video_id=video.id,
-                    timestamp=action_time
-                )
-                db.session.add(comment)
             
         db.session.commit()
         print(f"✅ 数据填充完成！\n管理员账号: admin@test.com / 123456")
