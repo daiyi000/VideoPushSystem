@@ -246,7 +246,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '../store/user';
 import { getVideoDetail, postAction, checkFavStatus } from '../api/video';
@@ -285,6 +285,8 @@ const isVideoPaused = ref(false);
 const playlistVideos = ref([]);
 const currentVideoTime = ref(0); // 跟踪当前播放时间
 
+let lastSaveTime = Date.now();
+
 const editModalRef = ref(null);
 
 const isOwner = computed(() => {
@@ -322,8 +324,32 @@ const loadPageData = async (videoId) => {
     loadDanmaku(videoId);
 
     if (userStore.token) {
+      // 1. 获取交互状态（定义 statusRes）
       const statusRes = await checkInteractionStatus(userStore.userInfo.id, videoId);
       interaction.value = statusRes.data.data;
+
+      // 2. 【核心修复】必须在这个 if 内部使用 statusRes
+      const lastProg = statusRes.data.data.last_progress;
+      if (lastProg > 0) {
+        // 确保 DOM 更新后再调用播放器方法
+        setTimeout(() => {
+          if (videoRef.value) {
+            videoRef.value.setCurrentTime(lastProg);
+            ElMessage.success(`已为您跳转到上次观看位置`);
+            
+            // 调用播放器的播放方法（需要确保 CustomVideoPlayer 已更新并暴露了 playVideo）
+            if (videoRef.value.playVideo) {
+              videoRef.value.playVideo();
+            } else {
+              // 兼容性处理：如果没更新组件，尝试直接调用原生 play
+              console.warn('playVideo method not found, falling back');
+              videoRef.value.videoRef?.play(); 
+            }
+          }
+        }, 100);
+      }
+
+      // 3. 记录本次观看
       postAction({ user_id: userStore.userInfo.id, video_id: videoId, type: 'view' });
     }
   } catch (e) {
@@ -333,8 +359,12 @@ const loadPageData = async (videoId) => {
     }
   }
 };
-
 const goToVideo = (vid, playlistId = null) => {
+  // 切换视频前保存当前视频进度
+  if (video.value && currentVideoTime.value > 0) {
+    saveProgress(currentVideoTime.value);
+  }
+  
   if (playlistId) {
     router.push({ path: `/video/${vid}`, query: { list: playlistId } });
   } else {
@@ -342,7 +372,6 @@ const goToVideo = (vid, playlistId = null) => {
   }
 };
 
-// 【核心修改】跳转到编辑页
 const goToEdit = () => {
   editModalRef.value.open(video.value.id);
 };
@@ -360,8 +389,13 @@ const handleSubscribe = async () => {
   } catch (e) { ElMessage.error('操作失败'); }
 };
 
-const onVideoPause = () => { isVideoPaused.value = true; };
+const onVideoPause = () => { 
+  isVideoPaused.value = true;
+  // 暂停时也保存一次进度
+  saveProgress(currentVideoTime.value);
+};
 const onVideoPlay = () => { isVideoPaused.value = false; };
+
 const loadComments = async () => { const uid = userStore.token ? userStore.userInfo.id : null; const res = await getComments(video.value.id, sortType.value, uid); comments.value = res.data.data.map(c => ({ ...c, expanded: false })); };
 const toggleSort = () => { sortType.value = sortType.value === 'hot' ? 'new' : 'hot'; loadComments(); };
 const postComment = async (parentId = null) => { if (!userStore.token) return ElMessage.warning('请先登录'); const content = parentId ? replyText.value : commentText.value; if (!content.trim()) return; await sendComment({ user_id: userStore.userInfo.id, video_id: video.value.id, content: content, parent_id: parentId }); commentText.value = ''; replyText.value = ''; replyTargetId.value = null; ElMessage.success('评论成功'); loadComments(); };
@@ -373,13 +407,48 @@ const toggleFav = async () => { if (!userStore.token) return ElMessage.warning('
 const loadDanmaku = async (vid) => { const res = await getDanmaku(vid); allDanmakus.value = res.data.data; };
 const fireDanmaku = async () => { if (!userStore.token) return ElMessage.warning('登录后发弹幕'); if (!danmakuText.value) return; const time = currentVideoTime.value; const text = danmakuText.value; const color = danmakuColor.value || '#FFFFFF'; await sendDanmaku({ user_id: userStore.userInfo.id, video_id: video.value.id, text, time, color }); pushDanmakuToScreen({ text, color }); danmakuText.value = ''; ElMessage.success('发射成功'); };
 const pushDanmakuToScreen = (dm) => { const id = Date.now() + Math.random(); activeDanmakus.value.push({ id, text: dm.text, color: dm.color, top: Math.random() * 80, speed: 5 + Math.random() * 5 }); setTimeout(() => { activeDanmakus.value = activeDanmakus.value.filter(d => d.id !== id); }, 10000); };
-const handleTimeUpdate = (time) => { currentVideoTime.value = time; allDanmakus.value.forEach(dm => { if (Math.abs(dm.time - time) < 0.5 && !dm.shown) { pushDanmakuToScreen(dm); dm.shown = true; } }); };
+
+// 新增：保存进度到后端的函数
+const saveProgress = async (time) => {
+  if (!userStore.token || !video.value) return;
+  if (isNaN(time) || time < 0) return;
+  
+  try {
+    // 这里的 type: 'progress' 对应后端 video.py 中的 action 逻辑
+    await postAction({
+      user_id: userStore.userInfo.id,
+      video_id: video.value.id,
+      type: 'progress',
+      progress: Math.floor(time)
+    });
+  } catch (e) {
+    // 静默失败，不打扰用户，但在控制台记录
+    console.warn('保存观看进度失败', e);
+  }
+};
+
+// 修改：handleTimeUpdate 函数
+const handleTimeUpdate = (time) => {
+  currentVideoTime.value = time;
+  
+  // 1. 弹幕逻辑
+  allDanmakus.value.forEach(dm => { 
+    if (Math.abs(dm.time - time) < 0.5 && !dm.shown) { 
+      pushDanmakuToScreen(dm); 
+      dm.shown = true; 
+    } 
+  });
+
+  // 2. 进度保存逻辑 (每 5 秒保存一次)
+  const now = Date.now();
+  if (now - lastSaveTime > 5000) {
+    saveProgress(time);
+    lastSaveTime = now;
+  }
+};
+
 const formatCount = (num) => num >= 10000 ? (num / 10000).toFixed(1) + '万' : num;
-
-// 时间格式化 (YYYY-MM-DD)
 const formatDate = (timeStr) => timeStr ? timeStr.split(' ')[0] : '';
-
-// 时长格式化 (MM:SS)
 const formatDuration = (seconds) => {
   if (!seconds) return '0:00';
   const m = Math.floor(seconds / 60);
@@ -387,8 +456,28 @@ const formatDuration = (seconds) => {
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
+// 快捷键处理 (为了代码完整性保留)
+const handleKeydown = (e) => {
+  if (e.code === 'Space') {
+    e.preventDefault(); 
+    // 这里需要操作播放器实例，可以通过 ref 传递方法，或者在 custom-player 内部处理
+  }
+};
+
 watch(() => route.params.id, (newId) => { if(newId) loadPageData(newId); });
-onMounted(() => { if(route.params.id) loadPageData(route.params.id); });
+
+onMounted(() => { 
+  if(route.params.id) loadPageData(route.params.id); 
+  document.addEventListener('keydown', handleKeydown);
+});
+
+// 修改：组件销毁时立即保存一次
+onBeforeUnmount(() => {
+  if (video.value && currentVideoTime.value > 0) {
+    saveProgress(currentVideoTime.value);
+  }
+  document.removeEventListener('keydown', handleKeydown);
+});
 </script>
 
 <style scoped>

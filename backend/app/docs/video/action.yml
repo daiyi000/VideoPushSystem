@@ -1,0 +1,33 @@
+doc: "视频交互"
+summary: "点赞/收藏/记录观看/更新进度"
+tags:
+  - Video
+parameters:
+  - name: body
+    in: body
+    required: true
+    schema:
+      type: object
+      required:
+        - user_id
+        - video_id
+        - type
+      properties:
+        user_id:
+          type: integer
+        video_id:
+          type: integer
+        type:
+          type: string
+          enum: ['view', 'like', 'unlike', 'favorite', 'unfavorite', 'progress']
+          description: "交互类型"
+        progress:
+          type: integer
+          description: "观看进度(秒)，仅当 type=progress 或 type=view 时有效"
+responses:
+  200:
+    description: "成功"
+    examples:
+      application/json:
+        code: 200
+        msg: "操作成功"

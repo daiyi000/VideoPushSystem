@@ -161,4 +161,14 @@ def check_status():
     video_id = request.args.get('video_id')
     is_fav = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='favorite').first()
     is_like = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='like').first()
-    return jsonify({'code': 200, 'data': {'is_fav': bool(is_fav), 'is_like': bool(is_like)}})
+    view_log = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='view')\
+        .order_by(ActionLog.timestamp.desc()).first()
+    last_progress = view_log.progress if view_log else 0
+    return jsonify({
+        'code': 200, 
+        'data': {
+            'is_fav': bool(is_fav), 
+            'is_like': bool(is_like),
+            'last_progress': last_progress  # 返回给前端
+        }
+    })

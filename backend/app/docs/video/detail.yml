@@ -1,0 +1,31 @@
+doc: "视频详情"
+summary: "获取视频详情"
+tags:
+  - Video
+parameters:
+  - name: video_id
+    in: path
+    type: integer
+    required: true
+    description: "视频ID"
+responses:
+  200:
+    description: "获取成功"
+    schema:
+      type: object
+      properties:
+        code:
+          type: integer
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            title:
+              type: string
+            url:
+              type: string
+            uploader_name:
+              type: string
+  404:
+    description: "视频不存在"

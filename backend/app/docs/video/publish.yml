@@ -1,0 +1,43 @@
+doc: "发布视频"
+summary: "发布或存草稿"
+description: "更新视频信息（标题、简介等）并修改发布状态"
+tags:
+  - Video
+parameters:
+  - name: body
+    in: body
+    required: true
+    schema:
+      type: object
+      required:
+        - id
+        - title
+      properties:
+        id:
+          type: integer
+          description: "视频ID"
+        title:
+          type: string
+          description: "视频标题"
+        description:
+          type: string
+        category:
+          type: string
+        tags:
+          type: string
+        cover_url:
+          type: string
+        visibility:
+          type: string
+          enum: ['public', 'private']
+        action:
+          type: string
+          enum: ['publish', 'draft']
+          description: "publish=发布, draft=存草稿"
+responses:
+  200:
+    description: "操作成功"
+    examples:
+      application/json:
+        code: 200
+        msg: "发布成功"

@@ -177,6 +177,53 @@ const handleKeydown = (e) => {
   }
 };
 
+// 设置当前播放时间的方法
+const setCurrentTime = (time) => {
+  const video = videoRef.value;
+  if (!video) return;
+
+  const doSeek = () => {
+    // 只有当时间有效且大于0时才跳转
+    if (typeof time === 'number' && time > 0) {
+      video.currentTime = time;
+    }
+  };
+
+  // 如果元数据已加载，直接跳转；否则等待 loadedmetadata 事件
+  if (video.readyState >= 1) {
+    doSeek();
+  } else {
+    const handler = () => {
+      doSeek();
+      video.removeEventListener('loadedmetadata', handler);
+    };
+    video.addEventListener('loadedmetadata', handler);
+  }
+};
+// 【新增】暴露给父组件的播放方法
+const playVideo = async () => {
+  if (!videoRef.value) return;
+  try {
+    // 尝试播放
+    await videoRef.value.play();
+    isPlaying.value = true;
+  } catch (err) {
+    console.warn("自动播放被拦截，尝试静音播放:", err);
+    // 如果播放失败（通常是因为没有用户交互），尝试静音播放
+    videoRef.value.muted = true;
+    isMuted.value = true;
+    await videoRef.value.play();
+    isPlaying.value = true;
+    // 提示用户
+    // ElMessage.info('已自动静音播放，请手动开启声音');
+  }
+};
+
+// 将方法暴露给父组件
+defineExpose({
+  setCurrentTime,
+  playVideo // <--- 新增
+});
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown);
 });
@@ -189,6 +236,7 @@ watch(() => props.src, () => {
   isPlaying.value = false;
   currentPercentage.value = 0;
 });
+
 </script>
 
 <style scoped>

@@ -88,7 +88,7 @@
             <div v-for="video in videoList" :key="video.id" class="video-card" @click="goToVideo(video.id)">
               <div class="thumbnail-wrapper">
                 <img :src="video.cover_url" class="thumbnail" />
-                <span class="duration">HD</span>
+                <span class="duration">{{ formatDuration(video.duration) }}</span>
               </div>
               <div class="video-info">
                 <h3 class="video-title" :title="video.title">{{ video.title }}</h3>
@@ -254,6 +254,14 @@ const bannerStyle = computed(() => ({
   backgroundSize: 'cover',
   backgroundPosition: 'center'
 }));
+
+const formatDuration = (seconds) => {
+  if (!seconds) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  // 补零操作，保证秒数是两位，例如 1:05
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
 
 const loadData = async () => {
   loading.value = true;

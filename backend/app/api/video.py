@@ -3,6 +3,7 @@ import time
 import cv2
 import random
 import jwt
+from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 from ..models import Video, User, ActionLog, Follow, db, Comment, Danmaku, playlist_video
@@ -59,7 +60,7 @@ def generate_auto_thumbnails(video_path, output_folder, file_prefix):
 
 # 1. 上传接口
 @video_bp.route('/upload_file', methods=['POST'])
-@swag_from(get_doc_path('upload_file.yml'))
+@swag_from(get_doc_path('upload.yml'))
 def upload_video_file():
     if 'file' not in request.files: return jsonify({'code': 400, 'msg': '无文件'})
     file = request.files['file']
@@ -233,38 +234,61 @@ def video_action():
     video_id = data.get('video_id')
     action_type = data.get('type')
     
+    # 1. 处理 "观看/进入页面" (view)
     if action_type == 'view':
-        # 查找今天是否已经看过，如果看过只更新时间，不新增记录（或者允许新增）
-        # 这里为了简单，每次打开详情页都算一次 view，但 progress 记录在最新的一条上
-        log = ActionLog(user_id=user_id, video_id=video_id, action_type='view')
-        db.session.add(log)
+        # 【核心修改】先查找是否已存在记录
+        existing_log = ActionLog.query.filter_by(
+            user_id=user_id, 
+            video_id=video_id, 
+            action_type='view'
+        ).first()
+
+        if existing_log:
+            # 如果存在：只更新“最后观看时间”，保留原有的 progress！
+            existing_log.timestamp = datetime.utcnow()
+            # 注意：这里千万不要写 existing_log.progress = 0
+        else:
+            # 如果不存在：才创建新记录
+            log = ActionLog(user_id=user_id, video_id=video_id, action_type='view', progress=0)
+            db.session.add(log)
         
+    # 2. 处理 "更新进度" (progress)
     elif action_type == 'progress':
-        # 【新增】更新观看进度
         progress = data.get('progress', 0)
-        # 找到该用户对该视频最近的一条 view 记录
-        log = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='view')\
-                             .order_by(ActionLog.timestamp.desc()).first()
+        # 查找记录进行更新
+        log = ActionLog.query.filter_by(
+            user_id=user_id, 
+            video_id=video_id, 
+            action_type='view'
+        ).first() # 这里不需要 order_by 了，因为现在逻辑保证了唯一性(或只操作这一个)
+
         if log:
             log.progress = int(progress)
-            log.timestamp = datetime.utcnow() # 更新最后观看时间
+            log.timestamp = datetime.utcnow() # 更新进度时也顺便更新时间
         else:
-            # 如果没有记录（异常情况），补一条
+            # 防御性代码：如果万一没找到（极少见），补一条
             log = ActionLog(user_id=user_id, video_id=video_id, action_type='view', progress=int(progress))
             db.session.add(log)
 
+    # 3. 处理 "收藏" (favorite)
     elif action_type == 'favorite':
         exists = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='favorite').first()
         if not exists:
             log = ActionLog(user_id=user_id, video_id=video_id, action_type='favorite', weight=5)
             db.session.add(log)
+    
+    # 4. 处理 "取消收藏" (unfavorite)
     elif action_type == 'unfavorite':
         ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='favorite').delete()
+    
+    # 5. 处理 "点赞" (like)
     elif action_type == 'like':
         exists = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='like').first()
         if not exists:
             log = ActionLog(user_id=user_id, video_id=video_id, action_type='like', weight=3)
             db.session.add(log)
+    
+    # 6. 处理 "取消点赞" (unlike)
     elif action_type == 'unlike':
         ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='like').delete()
         

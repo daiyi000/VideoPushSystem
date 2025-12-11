@@ -27,7 +27,11 @@ def create_app():
     swagger.init_app(app) # 绑定 Swagger
     
     # 允许跨域
-    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+    CORS(app, resources={
+        r"/*": {
+            "origins": ["http://localhost:5173", "http://127.0.0.1:5173"] 
+        }
+    }, supports_credentials=True)
     
     # 1. 注册视频蓝图
     from .api.video import video_bp
