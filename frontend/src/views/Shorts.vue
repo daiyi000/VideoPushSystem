@@ -50,11 +50,13 @@
                 <div class="play-icon-bg"><el-icon size="56"><VideoPlay /></el-icon></div>
               </div>
 
-              <div class="progress-bar-container" @click.stop="handleSeek">
-                 <div class="progress-bg"></div> 
-                 <div class="progress-bar" :style="{ width: progressPercent + '%' }"></div>
-                 <div class="progress-thumb" :style="{ left: progressPercent + '%' }"></div>
-              </div>
+              <div class="progress-bar-container" 
+     ref="progressBarRef"
+     @mousedown.stop="startDrag">
+   <div class="progress-bg"></div> 
+   <div class="progress-bar" :style="{ width: progressPercent + '%' }"></div>
+   <div class="progress-thumb" :style="{ left: progressPercent + '%' }"></div>
+</div>
             </div>
           </transition>
         </div>
@@ -230,6 +232,8 @@ import { getComments, sendComment, checkInteractionStatus, likeComment, pinComme
 import { toggleFollow, getChannelInfo } from '../api/user';
 import { ArrowUp, ArrowDown, VideoPlay, ChatDotRound, Share, Close, Position, InfoFilled, CaretBottom, CaretTop, MoreFilled, Top } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
+const progressBarRef = ref(null); // 进度条容器引用
+const isDragging = ref(false);    // 是否正在拖拽
 
 const route = useRoute();
 const router = useRouter();
@@ -372,26 +376,41 @@ const togglePlay = () => {
 };
 
 const onTimeUpdate = () => {
-    if (videoRef.value) {
+    if (videoRef.value && !isDragging.value) {
         const current = videoRef.value.currentTime;
         const total = videoRef.value.duration;
         progressPercent.value = (current / total) * 100;
     }
 };
 
-// 【新增】处理点击/拖动进度条
-const handleSeek = (e) => {
-    if (!videoRef.value) return;
-    const rect = e.currentTarget.getBoundingClientRect();
+const startDrag = (e) => {
+    isDragging.value = true;
+    handleDrag(e); // 点击瞬间先更新一次
+    document.addEventListener('mousemove', handleDrag);
+    document.addEventListener('mouseup', stopDrag);
+};
+
+const handleDrag = (e) => {
+    if (!videoRef.value || !progressBarRef.value) return;
+    
+    const rect = progressBarRef.value.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
+    // 计算百分比，限制在 0-1 之间
     const percent = Math.max(0, Math.min(1, clickX / rect.width));
     
-    // 立即更新视频时间
+    // 实时更新画面和进度条
+    progressPercent.value = percent * 100;
+    
     const newTime = percent * videoRef.value.duration;
     if (isFinite(newTime)) {
         videoRef.value.currentTime = newTime;
-        progressPercent.value = percent * 100;
     }
+};
+
+const stopDrag = () => {
+    isDragging.value = false;
+    document.removeEventListener('mousemove', handleDrag);
+    document.removeEventListener('mouseup', stopDrag);
 };
 
 const nextVideo = () => {
@@ -560,14 +579,15 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', handleKeydown); })
   height: auto;
   max-height: 100%; 
   position: relative; 
-  overflow: hidden;   
+  overflow: visible; 
   border-radius: 16px;
-  background: #000;
+  
   box-shadow: 0 4px 24px rgba(0,0,0,0.15);
   flex-shrink: 0;
+  z-index: 10;
 }
-.short-player-wrapper { width: 100%; height: 100%; position: absolute; top: 0; left: 0; background: #000; overflow: hidden; will-change: transform; }
-.short-video { width: 100%; height: 100%; object-fit: cover; }
+.short-player-wrapper { width: 100%; height: 100%; position: absolute; top: 0; left: 0;  overflow: visible; will-change: transform; }
+.short-video { width: 100%; height: 100%; object-fit: cover; border-radius: 16px; }
 
 /* 3. 右侧：操作栏 */
 .actions-side {
@@ -669,13 +689,13 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', handleKeydown); })
 .nav-btn.prev { top: calc(50% - 60px); }
 .nav-btn.next { top: calc(50% + 60px); }
 
-.play-mask { position: absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,0.2); }
+.play-mask { position: absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,0.2); border-radius: 16px; }
 .play-icon-bg { background: rgba(0,0,0,0.6); border-radius: 50%; padding: 15px; display: flex; color: white; }
 
 /* ============ 进度条样式 (可拖动增强) ============ */
 .progress-bar-container { 
     position: absolute; 
-    bottom: 0; left: 0; right: 0; 
+    bottom: 0; left: 12px; right: 12px; 
     height: 15px; /* 增加感应区域高度 */
     background: transparent; 
     z-index: 2; 
@@ -687,7 +707,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', handleKeydown); })
 .progress-bar-container:hover .progress-thumb { transform: scale(1); }
 
 /* 背景槽 */
-.progress-bg { position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: rgba(255,255,255,0.3); }
+.progress-bg { position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: rgba(255,255,255,0.3); border-radius: 2px; }
 
 /* 实际进度 */
 .progress-bar { 
@@ -696,12 +716,13 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', handleKeydown); })
     background: #ff0000; 
     transition: width 0.1s linear, height 0.1s; 
     pointer-events: none; /* 让点击穿透到 container */
+    border-radius: 2px;
 }
 
 /* 拖动滑块(圆点) */
 .progress-thumb {
     position: absolute;
-    bottom: -1px; /* 微调位置居中 */
+    bottom: -3px; /* 微调位置居中 */
     width: 12px; height: 12px;
     background: #ff0000;
     border-radius: 50%;

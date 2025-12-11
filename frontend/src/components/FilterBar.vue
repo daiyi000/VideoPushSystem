@@ -1,11 +1,12 @@
 <template>
   <div class="filter-bar-container">
-    <div class="tags-wrapper">
+    <div class="filter-scroll">
       <div 
         v-for="cat in categories" 
-        :key="cat"
-        :class="['tag-pill', { active: modelValue === cat }]"
-        @click="$emit('update:modelValue', cat); $emit('change', cat)"
+        :key="cat" 
+        class="filter-chip"
+        :class="{ active: modelValue === cat }"
+        @click="handleClick(cat)"
       >
         {{ cat }}
       </div>
@@ -14,48 +15,69 @@
 </template>
 
 <script setup>
-defineProps({
-  categories: { type: Array, required: true },
-  modelValue: { type: String, required: true }
+const props = defineProps({
+  categories: {
+    type: Array,
+    default: () => []
+  },
+  modelValue: {
+    type: String,
+    default: '全部'
+  }
 });
-defineEmits(['update:modelValue', 'change']);
+
+const emit = defineEmits(['update:modelValue', 'change']);
+
+const handleClick = (cat) => {
+  if (cat === props.modelValue && cat !== '全部') {
+    emit('update:modelValue', '全部');
+    emit('change', '全部');
+  } else {
+    emit('update:modelValue', cat);
+    emit('change', cat);
+  }
+};
 </script>
 
 <style scoped>
 .filter-bar-container {
-  /* 【核心修改】吸顶且背景透明 */
   position: sticky;
-  top: 0; 
-  z-index: 10;
-  background: rgba(255, 255, 255, 0.98); /* 极高不透明度的白 */
-  backdrop-filter: blur(2px);
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
   padding: 12px 24px;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
-  display: flex;
-  align-items: center;
+  border-bottom: 1px solid #e5e5e5;
+  width: 100%;
 }
 
-.tags-wrapper {
+.filter-scroll {
   display: flex;
   gap: 12px;
   overflow-x: auto;
-  width: 100%;
   scrollbar-width: none; 
 }
-.tags-wrapper::-webkit-scrollbar { display: none; }
+.filter-scroll::-webkit-scrollbar { display: none; }
 
-.tag-pill {
+.filter-chip {
   padding: 6px 12px;
-  background: rgba(0,0,0,0.05);
+  background: #f2f2f2;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
+  color: #0f0f0f;
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s;
-  color: #0f0f0f;
   user-select: none;
 }
-.tag-pill:hover { background: #e5e5e5; }
-.tag-pill.active { background: #0f0f0f; color: white; }
+
+.filter-chip:hover {
+  background: #e5e5e5;
+}
+
+.filter-chip.active {
+  background: #0f0f0f;
+  color: #fff;
+}
 </style>

@@ -7,22 +7,51 @@ from ..models import Video, ActionLog, db
 
 class RecommendationEngine:
     
-    def get_user_preferred_categories(self, user_id, limit=10):
-        default_cats = ['全部', '科技', '生活', '娱乐', '教育', '电影', '音乐', '游戏', '体育', '新闻']
-        if not user_id: return default_cats
-        try:
-            query = db.session.query(Video.category, func.count(ActionLog.id).label('count'))\
-                .join(ActionLog, ActionLog.video_id == Video.id)\
-                .filter(ActionLog.user_id == user_id, ActionLog.action_type == 'view')\
-                .group_by(Video.category)\
-                .order_by(func.count(ActionLog.id).desc())\
-                .limit(5).all()
-            top_cats = [r[0] for r in query if r[0]]
-            result = ['全部'] + top_cats + [c for c in default_cats if c not in top_cats]
-            seen = set()
-            final_cats = [x for x in result if not (x in seen or seen.add(x))]
-            return final_cats[:limit]
-        except Exception: return default_cats
+    def get_user_preferred_categories(self, user_id, limit=15):
+        # 1. 基础分类池 (不含 '全部'、'最近上传'、'已观看')
+        default_cats = ['科技', '生活', '娱乐', '教育', '电影', '音乐', '游戏', '体育', '新闻']
+        
+        # 2. 特殊尾部分类
+        tail_cats = ['最近上传', '已观看']
+        
+        sorted_cats = []
+        
+        if user_id:
+            try:
+                # 统计用户观看最多的分类
+                query = db.session.query(Video.category, func.count(ActionLog.id).label('count'))\
+                    .join(ActionLog, ActionLog.video_id == Video.id)\
+                    .filter(ActionLog.user_id == user_id, ActionLog.action_type == 'view')\
+                    .group_by(Video.category)\
+                    .order_by(func.count(ActionLog.id).desc())\
+                    .all() 
+                
+                # 提取用户常看的分类 (且必须在 default_cats 中，防止脏数据)
+                top_cats = [r[0] for r in query if r[0] in default_cats]
+                
+                # A. 先放入用户喜欢的
+                sorted_cats.extend(top_cats)
+                
+                # B. 再放入剩余的默认分类
+                for c in default_cats:
+                    if c not in sorted_cats:
+                        sorted_cats.append(c)
+            except Exception:
+                # 出错降级
+                sorted_cats = default_cats
+        else:
+            # 无用户登录，使用默认顺序
+            sorted_cats = default_cats
+
+        # 去重逻辑 (虽然上面的逻辑基本保证无重复，但保留作为保险)
+        seen = set()
+        unique_cats = [x for x in sorted_cats if not (x in seen or seen.add(x))]
+        
+        # 3. 最终组装：['全部'] + [排序后的常规分类] + ['最近上传', '已观看']
+        # 注意：这里我们截取 unique_cats 的前 N 个，但保证 tail_cats 始终在最后
+        final_list = ['全部'] + unique_cats[:limit] + tail_cats
+        
+        return final_list
 
     # 热门推荐：过滤已发布且公开
     def get_hot_videos(self, limit=20):

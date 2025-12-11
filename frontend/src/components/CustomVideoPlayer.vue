@@ -27,13 +27,15 @@
     <!-- 底部控制栏 -->
     <div class="controls-bar" :class="{ 'visible': showControls || !isPlaying }">
       <!-- 进度条 -->
-      <div class="progress-container" @click="seek" @mousedown="startDrag">
-        <div class="progress-bg"></div>
-        <div class="progress-buffered" :style="{ width: bufferedPercentage + '%' }"></div>
-        <div class="progress-current" :style="{ width: currentPercentage + '%' }">
-          <div class="progress-handle"></div>
-        </div>
-      </div>
+      <div class="progress-container" 
+       ref="progressRef"
+       @mousedown="startDrag" 
+       @click="seek"> <div class="progress-bg"></div>
+    <div class="progress-buffered" :style="{ width: bufferedPercentage + '%' }"></div>
+    <div class="progress-current" :style="{ width: currentPercentage + '%' }">
+      <div class="progress-handle"></div>
+    </div>
+  </div>
 
       <div class="controls-row">
         <div class="left-controls">
@@ -87,6 +89,8 @@ const volume = ref(1);
 const isMuted = ref(false);
 const showControls = ref(true);
 let controlTimer = null;
+const isDragging = ref(false); // 新增：标记是否正在拖拽
+const progressRef = ref(null); // 新增：进度条容器 ref
 
 // 格式化时间
 const formatTime = (time) => {
@@ -110,9 +114,40 @@ const togglePlay = () => {
 };
 
 const onTimeUpdate = () => {
+  if (isDragging.value) return; 
   currentTime.value = videoRef.value.currentTime;
   currentPercentage.value = (currentTime.value / duration.value) * 100;
   emit('timeupdate', videoRef.value.currentTime);
+};
+
+// 【新增】拖拽逻辑
+const startDrag = (e) => {
+  isDragging.value = true;
+  handleDrag(e); // 立即更新一次位置
+  // 添加全局监听，防止鼠标移出进度条后拖拽失效
+  document.addEventListener('mousemove', handleDrag);
+  document.addEventListener('mouseup', stopDrag);
+};
+
+const handleDrag = (e) => {
+  if (!duration.value) return;
+  const rect = progressRef.value.getBoundingClientRect();
+  let pos = (e.clientX - rect.left) / rect.width;
+  // 限制范围 0-1
+  pos = Math.max(0, Math.min(1, pos));
+  
+  currentPercentage.value = pos * 100;
+  // 拖拽过程中，我们可以选择是否实时更新视频画面（scrubbing），这里选择实时更新
+  videoRef.value.currentTime = pos * duration.value;
+};
+
+const stopDrag = (e) => {
+  if (isDragging.value) {
+    handleDrag(e); // 最后确认一次位置
+    isDragging.value = false;
+    document.removeEventListener('mousemove', handleDrag);
+    document.removeEventListener('mouseup', stopDrag);
+  }
 };
 
 const onLoadedMetadata = () => {
@@ -134,9 +169,11 @@ const onEnded = () => {
 
 // 进度条拖拽
 const seek = (e) => {
-  const rect = e.target.closest('.progress-container').getBoundingClientRect();
-  const pos = (e.clientX - rect.left) / rect.width;
-  videoRef.value.currentTime = pos * duration.value;
+  if(!isDragging.value) {
+     const rect = progressRef.value.getBoundingClientRect();
+     const pos = (e.clientX - rect.left) / rect.width;
+     videoRef.value.currentTime = pos * duration.value;
+  }
 };
 
 // 音量
@@ -282,8 +319,10 @@ watch(() => props.src, () => {
   height: 5px; width: 100%; background: rgba(255,255,255,0.2);
   cursor: pointer; position: relative; border-radius: 2px;
   transition: height 0.1s;
+  height: 6px; /*稍微加粗*/
+  transition: height 0.1s;
 }
-.progress-container:hover { height: 8px; }
+.progress-container:hover { height: 10px; }
 .progress-buffered {
   position: absolute; height: 100%; background: rgba(255,255,255,0.4); left: 0; top: 0;
 }
