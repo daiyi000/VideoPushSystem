@@ -188,12 +188,33 @@ def my_favorites():
 
 @user_bp.route('/history', methods=['GET'])
 def my_history():
-    user_id = request.args.get('user_id')
-    logs = ActionLog.query.filter_by(user_id=user_id, action_type='view').order_by(ActionLog.timestamp.desc()).limit(50).all()
+    user_id = request.args.get('user_id', type=int)
+    if not user_id:
+        return jsonify({'code': 400, 'msg': 'User ID is required'})
+    
+    logs = ActionLog.query.filter_by(user_id=user_id, action_type='view')\
+        .order_by(ActionLog.timestamp.desc()).limit(50).all()
+    
     video_list = []
     seen = set()
+    
     for log in logs:
-        if log.video_id not in seen:
-            video = Video.query.get(log.video_id)
-            if video: video_list.append(video.to_dict()); seen.add(log.video_id)
+        if log.video_id in seen:
+            continue
+        seen.add(log.video_id)
+        
+        video = Video.query.get(log.video_id)
+        if video:
+            v_dict = video.to_dict()
+            # 注入进度
+            v_dict['progress'] = log.progress 
+            if video.duration and video.duration > 0:
+                percent = (log.progress / video.duration) * 100
+                v_dict['progress_percent'] = min(percent, 100)
+            else:
+                v_dict['progress_percent'] = 0
+            
+            v_dict['view_at'] = log.timestamp.strftime('%Y-%m-%d %H:%M')
+            video_list.append(v_dict)
+            
     return jsonify({'code': 200, 'data': video_list})

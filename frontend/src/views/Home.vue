@@ -29,8 +29,9 @@
                 </div>
                 <div class="search-channel-row">
                   <img :src="video.uploader_avatar" class="search-avatar" />
-                  <span class="search-author">{{ video.uploader_name }}
-                  <VerificationBadge :type="video.uploader_verification_type" />
+                  <span class="search-author">
+                    {{ video.uploader_name }}
+                    <VerificationBadge :type="video.uploader_verification_type" />
                   </span>
                 </div>
                 <div class="search-desc">{{ video.description || '暂无简介' }}</div>
@@ -57,16 +58,29 @@
                     muted autoplay loop
                   ></video>
                   <img v-else :src="video.cover_url" class="thumbnail" />
+                  
+                  <div class="progress-bar-bg" v-if="hoverVideoId !== video.id && video.progress_percent > 0">
+                     <div class="progress-bar-fill" :style="{ width: video.progress_percent + '%' }"></div>
+                  </div>
+
                   <span class="duration" v-if="hoverVideoId !== video.id">{{ formatTime(video.duration) }}</span>
                 </div>
                 <div class="video-info">
                   <img :src="video.uploader_avatar" class="uploader-avatar" />
                   <div class="text-info">
                     <h3 class="video-title" :title="video.title">{{ video.title }}</h3>
-                    <div class="channel-name">{{ video.uploader_name }}
-                    <VerificationBadge :type="video.uploader_verification_type" />
+                    <div class="channel-name">
+                       {{ video.uploader_name }}
+                       <VerificationBadge :type="video.uploader_verification_type" />
                     </div>
-                    <div class="video-meta">{{ formatCount(video.views) }}次观看 • {{ formatDate(video.upload_time) }}</div>
+                    
+                    <div class="video-meta" v-if="video.progress > 0">
+                        观看至 {{ formatTime(video.progress) }}
+                    </div>
+                    <div class="video-meta" v-else>
+                        {{ formatCount(video.views) }}次观看 • {{ formatDate(video.upload_time) }}
+                    </div>
+
                   </div>
                 </div>
             </div>
@@ -98,7 +112,10 @@
                   <img :src="video.uploader_avatar" class="uploader-avatar" />
                   <div class="text-info">
                     <h3 class="video-title" :title="video.title">{{ video.title }}</h3>
-                    <div class="channel-name">{{ video.uploader_name }}</div>
+                    <div class="channel-name">
+                        {{ video.uploader_name }}
+                        <VerificationBadge :type="video.uploader_verification_type" />
+                    </div>
                     <div class="video-meta">{{ formatCount(video.views) }}次观看 • {{ formatDate(video.upload_time) }}</div>
                   </div>
                 </div>
@@ -127,7 +144,6 @@
                       style="object-fit: cover;"
                     ></video>
                     <img v-else :src="video.cover_url" class="thumbnail" />
-                    
                     <div class="shorts-overlay" v-if="hoverVideoId !== video.id">
                       <span class="shorts-views">{{ formatCount(video.views) }} 观看</span>
                     </div>
@@ -142,7 +158,7 @@
         </div>
         
         <div class="section-container" v-if="mixList && mixList.length > 0">
-          <div class="section-header"><h3></h3></div>
+          <div class="section-header"><h3>为您推荐</h3></div>
           <div class="video-grid grid-3-cols">
              <div v-for="video in mixList" :key="'mix-'+video.id" 
                   class="video-card horizontal-card hover-effect" 
@@ -164,7 +180,10 @@
                    <img :src="video.uploader_avatar" class="uploader-avatar" />
                    <div class="text-info">
                      <h3 class="video-title">{{ video.title }}</h3>
-                     <div class="channel-name">{{ video.uploader_name }}</div>
+                     <div class="channel-name">
+                        {{ video.uploader_name }}
+                        <VerificationBadge :type="video.uploader_verification_type" />
+                     </div>
                      <div class="video-meta">{{ formatCount(video.views) }}次观看</div>
                    </div>
                 </div>
@@ -172,7 +191,45 @@
           </div>
         </div>
 
+        <div class="section-container" v-if="historyList && historyList.length > 0">
+          <div class="section-header"><h3>已观看</h3></div>
+          <div class="video-grid grid-3-cols">
+             <div v-for="video in historyList" :key="'hist-'+video.id" 
+                  class="video-card horizontal-card hover-effect" 
+                  @click="goToDetail(video.id)"
+                  @mouseenter="handleMouseEnter(video, 'continue')"
+                  @mouseleave="handleMouseLeave"
+             >
+                  <div class="thumbnail-wrapper">
+                    <video 
+                      v-if="hoverVideoId === video.id"
+                      class="preview-video"
+                      :src="video.url"
+                      muted autoplay
+                    ></video>
+                    <img v-else :src="video.cover_url" class="thumbnail" />
+                    
+                    <div class="progress-bar-bg" v-if="hoverVideoId !== video.id && video.progress_percent > 0">
+                      <div class="progress-bar-fill" :style="{ width: video.progress_percent + '%' }"></div>
+                    </div>
 
+                    <span class="duration" v-if="hoverVideoId !== video.id">{{ formatTime(video.duration) }}</span>
+                  </div>
+                  <div class="video-info">
+                    <div class="text-info" style="margin-left:0">
+                      <h3 class="video-title">{{ video.title }}</h3>
+                      <div class="channel-name">
+                         {{ video.uploader_name }}
+                         <VerificationBadge :type="video.uploader_verification_type" />
+                      </div>
+                      
+                      <div class="video-meta" v-if="video.progress > 0">观看至 {{ formatTime(video.progress) }}</div>
+                      <div class="video-meta" v-else>{{ formatCount(video.views) }}次观看</div>
+                    </div>
+                  </div>
+             </div>
+          </div>
+        </div>
 
       </div>
 
@@ -243,6 +300,7 @@ const fetchData = async () => {
         discoverList.value = d.discover || [];
         shortsList.value = d.shorts || [];
         historyList.value = d.history || [];
+        console.log("历史记录数据调试:", historyList.value);
         mixList.value = d.mix_content || [];
       }
     }
@@ -298,7 +356,13 @@ const handleMouseEnter = async (video, mode) => {
     } else {
       videoEl.currentTime = 0;
     }
-    try { await videoEl.play(); } catch (e) { console.warn(e); }
+    try { 
+      await videoEl.play().catch(e => {
+        if (e.name !== 'AbortError') console.warn(e);
+      });
+    } catch (e) { 
+      // ignore
+    }
   }
 };
 
@@ -323,16 +387,49 @@ onMounted(fetchData);
 .video-card { cursor: pointer; transition: transform 0.2s; display: flex; flex-direction: column; position: relative; border-radius: 12px; background: #fff; }
 .hover-effect { transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s; }
 .hover-effect:hover { transform: scale(1.05); z-index: 10; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
-.horizontal-card .thumbnail-wrapper { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden;  margin-bottom: 12px; }
+
+/* 封面容器：注意移除了 background: #000 以消除圆角黑边 */
+.horizontal-card .thumbnail-wrapper { 
+  position: relative; 
+  width: 100%; 
+  aspect-ratio: 16 / 9; 
+  border-radius: 12px; 
+  overflow: hidden;  
+  margin-bottom: 12px; 
+}
 .horizontal-card:hover .thumbnail-wrapper { border-radius: 12px 12px 0 0; }
-.vertical-card .thumbnail-wrapper { position: relative; width: 100%; aspect-ratio: 9 / 16; border-radius: 12px; overflow: hidden;  margin-bottom: 8px; }
+
+.vertical-card .thumbnail-wrapper { 
+  position: relative; 
+  width: 100%; 
+  aspect-ratio: 9 / 16; 
+  border-radius: 12px; 
+  overflow: hidden;  
+  margin-bottom: 8px; 
+}
+
 .preview-video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumbnail { width: 100%; height: 100%; object-fit: cover; }
 .duration { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.8); color: white; padding: 3px 4px; border-radius: 4px; font-size: 12px; font-weight: 500; }
 .shorts-overlay { position: absolute; bottom: 0; left: 0; right: 0; top: 0; background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 30%); display: flex; flex-direction: column; justify-content: flex-end; padding: 10px; pointer-events: none;}
 .shorts-views { color: white; font-size: 12px; font-weight: bold; }
-.progress-bar-bg { position: absolute; bottom: 0; left: 0; width: 100%; height: 4px; background: rgba(255,255,255,0.3); }
-.progress-bar-fill { height: 100%; background: red; }
+
+/* 【核心新增】进度条样式 */
+.progress-bar-bg { 
+  position: absolute; 
+  bottom: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 4px; 
+  background: rgba(255,255,255,0.4); 
+  z-index: 2; /* 确保在图片上层 */
+}
+.progress-bar-fill { 
+  height: 100%; 
+  background: #FF0000; 
+  border-radius: 0 2px 2px 0;
+}
+
 .video-info { display: flex; gap: 12px; align-items: flex-start; padding: 0 4px; }
 .uploader-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #ddd; }
 .text-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }

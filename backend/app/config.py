@@ -33,7 +33,6 @@ class Config:
     
     ALIPAY_RETURN_URL = "http://localhost:5173/pay/result"
     
-    # 你的 Cloudflare 或 cpolar 地址也可以放进 .env，方便切换
     ALIPAY_NOTIFY_URL = "https://pay.aeasywink.top/api/pay/notify" 
 
     # 读取私钥
