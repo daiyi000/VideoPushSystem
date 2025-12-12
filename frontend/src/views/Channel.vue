@@ -30,7 +30,9 @@
           </div>
           
           <div class="info-section">
-            <h1 class="channel-name">{{ author.username }}</h1>
+            <h1 class="channel-name">{{ author.username }}
+            <VerificationBadge :type="author.verification_type" />
+            </h1>
             <div class="channel-meta">
               <span class="meta-item">@{{ author.username }}</span>
               <span class="meta-item">{{ stats.fans }} 位订阅者</span>
@@ -216,6 +218,7 @@ import { createPlaylist, deletePlaylist, addVideoToPlaylist, getPlaylistVideos, 
 import { Search, Plus, List, VideoPlay, Camera, Delete } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import ImageCropper from '../components/ImageCropper.vue';
+import VerificationBadge from '../components/VerificationBadge.vue';
 
 const route = useRoute();
 const router = useRouter();

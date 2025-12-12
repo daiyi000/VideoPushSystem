@@ -61,8 +61,11 @@ def create_app():
     from .api.admin import admin_bp
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     
-    # 【新增】注册自定义文档路由 (ReDoc)
-    # 访问 http://localhost:5000/docs 即可查看 YouTube 风格的文档
+    # 8. 注册支付蓝图
+    from .api.pay import pay_bp
+    app.register_blueprint(pay_bp, url_prefix='/api/pay')
+
+    # 注册自定义文档路由 (ReDoc)
     @app.route('/docs')
     def redoc_docs():
         return render_template('redoc.html')

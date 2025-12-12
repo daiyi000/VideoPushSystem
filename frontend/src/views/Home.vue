@@ -29,7 +29,9 @@
                 </div>
                 <div class="search-channel-row">
                   <img :src="video.uploader_avatar" class="search-avatar" />
-                  <span class="search-author">{{ video.uploader_name }}</span>
+                  <span class="search-author">{{ video.uploader_name }}
+                  <VerificationBadge :type="video.uploader_verification_type" />
+                  </span>
                 </div>
                 <div class="search-desc">{{ video.description || '暂无简介' }}</div>
               </div>
@@ -61,7 +63,9 @@
                   <img :src="video.uploader_avatar" class="uploader-avatar" />
                   <div class="text-info">
                     <h3 class="video-title" :title="video.title">{{ video.title }}</h3>
-                    <div class="channel-name">{{ video.uploader_name }}</div>
+                    <div class="channel-name">{{ video.uploader_name }}
+                    <VerificationBadge :type="video.uploader_verification_type" />
+                    </div>
                     <div class="video-meta">{{ formatCount(video.views) }}次观看 • {{ formatDate(video.upload_time) }}</div>
                   </div>
                 </div>
@@ -187,6 +191,7 @@ import { getMyHistory } from '../api/user';
 import { Filter, VideoPlay } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import FilterBar from '../components/FilterBar.vue';
+import VerificationBadge from '../components/VerificationBadge.vue';
 
 const router = useRouter();
 const route = useRoute();

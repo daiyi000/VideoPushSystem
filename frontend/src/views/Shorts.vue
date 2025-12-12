@@ -138,7 +138,9 @@
                             </div>
                             
                            <div class="c-header">
-                              <span class="c-user">@{{ c.user.username }}</span>
+                              <span class="c-user">@{{ c.user.username }}
+                              <VerificationBadge :type="c.user.verification_type" />
+                              </span>
                               <span class="c-time">{{ formatDate(c.time) }}</span>
                            </div>
                            <div class="c-text">{{ c.content }}</div>
@@ -182,7 +184,9 @@
                                  <div v-for="r in c.replies" :key="r.id" class="comment-item sub-item">
                                     <el-avatar :size="24" :src="r.user.avatar" />
                                     <div class="comment-content">
-                                       <div class="c-header"><span class="c-user">{{ r.user.username }}</span></div>
+                                       <div class="c-header"><span class="c-user">{{ r.user.username }}
+                                       <VerificationBadge :type="r.user.verification_type" />
+                                       </span></div>
                                        <div class="c-text">{{ r.content }}</div>
                                     </div>
                                  </div>
@@ -234,6 +238,7 @@ import { ArrowUp, ArrowDown, VideoPlay, ChatDotRound, Share, Close, Position, In
 import { ElMessage } from 'element-plus';
 const progressBarRef = ref(null); // 进度条容器引用
 const isDragging = ref(false);    // 是否正在拖拽
+import VerificationBadge from '../components/VerificationBadge.vue';
 
 const route = useRoute();
 const router = useRouter();

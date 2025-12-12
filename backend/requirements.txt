@@ -13,3 +13,5 @@ scikit-learn
 SQLAlchemy==2.0.25
 Werkzeug==3.1.4
 pymysql
+python-alipay-sdk>=3.0.0
+cryptography>=3.4.0

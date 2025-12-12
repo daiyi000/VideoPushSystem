@@ -43,7 +43,7 @@ def get_comments():
                 'time': r.timestamp.strftime('%Y-%m-%d %H:%M'),
                 'likes': r.likes,
                 'is_liked': r.id in liked_comment_ids, # 标记子评论是否点赞
-                'user': {'id': r.user.id, 'username': r.user.username, 'avatar': r.user.avatar}
+                'user': {'id': r.user.id, 'username': r.user.username, 'avatar': r.user.avatar, 'verification_type': r.user.verification_type}
             })
 
         data.append({
@@ -53,7 +53,7 @@ def get_comments():
             'likes': c.likes,
             'is_pinned': c.is_pinned,
             'is_liked': c.id in liked_comment_ids, # 标记主评论是否点赞
-            'user': {'id': c.user.id, 'username': c.user.username, 'avatar': c.user.avatar},
+            'user': {'id': c.user.id, 'username': c.user.username, 'avatar': c.user.avatar, 'verification_type': c.user.verification_type},
             'replies': replies_data
         })
         

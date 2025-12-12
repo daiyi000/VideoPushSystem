@@ -30,6 +30,8 @@ import StudioCustomization from '../views/studio/StudioCustomization.vue';
 
 import Shorts from '../views/Shorts.vue';
 
+import PayView from '../views/PayView.vue';
+import PayResult from '../views/PayResult.vue';
 const routes = [
   // 登录页
   { path: '/login', name: 'Login', component: Login },
@@ -78,6 +80,22 @@ const routes = [
     ]
   },
 
+  // 支付
+{
+    path: '/pay',
+    name: 'Pay',
+    component: PayView,
+    meta: { title: '认证中心' }
+  },
+
+  // 【新增】支付结果页
+  { 
+    path: '/pay/result', 
+    name: 'PayResult', 
+    component: PayResult,
+    meta: { requiresAuth: true }
+  },
+
   // 404 路由 (必须放在最后)
   { 
     path: '/:pathMatch(.*)*', 
@@ -96,7 +114,22 @@ const router = createRouter({
 // 全局路由守卫
 router.beforeEach((to, from, next) => {
   const userStore = useUserStore();
-  
+
+  // 拦截已认证用户访问 /pay
+  if (to.path === '/pay') {
+    // 1. 如果没登录，去登录
+    if (!userStore.token) {
+      ElMessage.warning('请先登录');
+      next('/login');
+      return;
+    }
+    // 2. 如果已经认证过了 (verification_type > 0)，禁止访问，踢回个人中心
+    if (userStore.userInfo && userStore.userInfo.verification_type > 0) {
+      ElMessage.info('您已经是认证用户，无需重复申请');
+      next('/profile'); 
+      return;
+    }
+  }
   // 1. 检查管理员权限
   if (to.meta.requiresAdmin) {
     if (!userStore.token) {

@@ -19,6 +19,7 @@ class User(db.Model):
     avatar = db.Column(db.String(256), default='https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png')
     banner = db.Column(db.String(256), default='https://via.placeholder.com/1200x300?text=Channel+Banner')
     description = db.Column(db.String(256), default='这个人很懒，什么都没写')
+    verification_type = db.Column(db.Integer, default=0)  # 认证类型: 0=无, 1=普通认证(对勾), 2=音乐人认证(音符)
     
     # 权限与状态
     is_admin = db.Column(db.Boolean, default=False)
@@ -40,7 +41,8 @@ class User(db.Model):
             'id': self.id, 'username': self.username, 'email': self.email, 
             'avatar': self.avatar, 'banner': self.banner, 'description': self.description,
             'is_admin': self.is_admin, 'is_banned': self.is_banned,
-            'created_at': self.created_at.strftime('%Y-%m-%d')
+            'created_at': self.created_at.strftime('%Y-%m-%d'),
+            'verification_type': self.verification_type,
         }
 
 # 2. 视频表
@@ -79,7 +81,8 @@ class Video(db.Model):
             'duration': self.duration,
             'is_short': self.is_short, # 返回标记
             'upload_time': self.upload_time.strftime('%Y-%m-%d %H:%M'),
-            'uploader_id': self.uploader_id, 'uploader_name': author_name, 'uploader_avatar': author_avatar
+            'uploader_id': self.uploader_id, 'uploader_name': author_name, 'uploader_avatar': author_avatar,
+            'uploader_verification_type': self.uploader.verification_type if self.uploader else 0,
         }
 
 # 3. 行为日志
@@ -159,4 +162,17 @@ class EmailCaptcha(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), nullable=False)
     code = db.Column(db.String(6), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# 9. 订单表
+class Order(db.Model):
+    __tablename__ = 'orders'
+    id = db.Column(db.Integer, primary_key=True)
+    order_no = db.Column(db.String(64), unique=True, nullable=False) # 比如 "20231212xxxxx"
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    subject = db.Column(db.String(128)) # 订单标题: "购买个人认证"
+    total_amount = db.Column(db.Float)  # 金额
+    trade_status = db.Column(db.String(32), default='WAIT_BUYER_PAY') # 交易状态
+    # 购买的具体认证类型
+    target_ver_type = db.Column(db.Integer) 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

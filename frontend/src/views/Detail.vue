@@ -44,7 +44,9 @@
                   <div class="uploader-mini" @click="$router.push(`/@${video.uploader_name}`)">
                     <el-avatar :size="40" :src="video.uploader_avatar" />
                     <div class="uploader-text">
-                      <div class="name">{{ video.uploader_name }}</div>
+                      <div class="name">{{ video.uploader_name }}
+                      <VerificationBadge :type="video.uploader_verification_type" />
+                      </div>
                       <div class="subs">{{ channelStats.fans }} 位订阅者</div>
                     </div>
                   </div>
@@ -121,7 +123,9 @@
                     </div>
 
                     <div class="c-header">
-                      <span class="c-user">@{{ c.user.username }}</span>
+                      <span class="c-user">@{{ c.user.username }}
+                      <VerificationBadge :type="c.user.verification_type" />
+                      </span>
                       <span class="c-time">{{ c.time }}</span>
                     </div>
                     <div class="c-text">{{ c.content }}</div>
@@ -162,7 +166,9 @@
                           <el-avatar :size="24" :src="r.user.avatar" class="r-avatar" />
                           <div class="r-body">
                             <div class="c-header">
-                              <span class="c-user">@{{ r.user.username }}</span>
+                              <span class="c-user">@{{ r.user.username }}
+                              <VerificationBadge :type="r.user.verification_type" />
+                              </span>
                               <span class="c-time">{{ r.time }}</span>
                             </div>
                             <div class="c-text">{{ r.content }}</div>
@@ -258,6 +264,7 @@ import { ElMessage } from 'element-plus';
 import { Star, StarFilled, Sort, CaretBottom, CaretTop, MoreFilled, Top, VideoPlay, Edit } from '@element-plus/icons-vue';
 import CustomVideoPlayer from '../components/CustomVideoPlayer.vue';
 import VideoEditModal from '../components/VideoEditModal.vue';
+import VerificationBadge from '../components/VerificationBadge.vue';
 
 const route = useRoute();
 const router = useRouter();

@@ -4,16 +4,36 @@
       <div class="user-header">
         <el-avatar :size="80" :src="userInfo.avatar" class="u-avatar"></el-avatar>
         <div class="info">
-          <h2>{{ userInfo.username }}</h2>
+          <h2 class="username-row">
+            {{ userInfo.username }}
+            <VerificationBadge :type="userInfo.verification_type" />
+          </h2>
           <p class="email">{{ userInfo.email }}</p>
-          <div style="margin-top: 10px;">
-            <el-button type="primary" round size="small" @click="$router.push(`/channel/${userInfo.id}`)">前往我的频道</el-button>
+          
+          <div class="action-buttons">
+            <el-button type="primary" round size="small" @click="$router.push(`/channel/${userInfo.id}`)">
+              前往我的频道
+            </el-button>
+
+            <el-button 
+              v-if="userInfo.verification_type === 0"
+              type="warning" 
+              plain 
+              round 
+              size="small" 
+              @click="$router.push('/pay')"
+            >
+              <el-icon style="margin-right: 4px"><Trophy /></el-icon> 申请认证
+            </el-button>
+            
+            <el-tag v-else-if="userInfo.verification_type > 0" type="success" round size="small" style="margin-left: 10px;">
+              {{ userInfo.verification_type === 1 ? '已个人认证' : '已认证音乐人' }}
+            </el-tag>
           </div>
         </div>
       </div>
 
       <el-tabs v-model="activeTab" @tab-click="handleTabClick" class="profile-tabs">
-        
         <el-tab-pane label="我的发布" name="videos">
           <el-table :data="myVideos" style="width: 100%" empty-text="暂无视频">
             <el-table-column prop="title" label="标题" />
@@ -56,7 +76,6 @@
           </div>
           <el-empty v-else description="暂无收藏" />
         </el-tab-pane>
-
       </el-tabs>
     </el-card>
   </div>
@@ -65,16 +84,34 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useUserStore } from '../store/user';
-import { getMyVideos, getMyFavs, getMyHistory } from '../api/user';
+import { getMyVideos, getMyFavs, getMyHistory, getProfile } from '../api/user'; // 【修改】引入 getProfile
 import { deleteVideo } from '../api/video';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { Trophy } from '@element-plus/icons-vue';
+import VerificationBadge from '../components/VerificationBadge.vue';
 
 const userStore = useUserStore();
-const activeTab = ref('history'); // 默认看历史
-const userInfo = ref({ ...userStore.userInfo });
+const activeTab = ref('history'); 
+const userInfo = ref({ ...userStore.userInfo }); // 初始化先用缓存
 const myVideos = ref([]);
 const myFavs = ref([]);
 const myHistory = ref([]);
+
+// 【新增】强制从后端拉取最新用户信息，修复缓存不同步的问题
+const fetchLatestProfile = async () => {
+  try {
+    const res = await getProfile(userStore.userInfo.id);
+    if (res.data.code === 200) {
+      const latestUser = res.data.data;
+      // 更新 Pinia Store 和 本地缓存
+      userStore.setLoginState(userStore.token, latestUser);
+      // 更新当前页面数据
+      userInfo.value = latestUser;
+    }
+  } catch (e) {
+    console.error('更新用户信息失败', e);
+  }
+};
 
 const loadData = async (tabName) => {
   const uid = userStore.userInfo.id;
@@ -102,19 +139,21 @@ const handleDelete = (id) => {
   });
 };
 
-onMounted(() => loadData());
+onMounted(() => {
+  fetchLatestProfile(); // 【修改】挂载时立即刷新用户信息
+  loadData();
+});
 </script>
 
 <style scoped>
 .profile-container { max-width: 1000px; margin: 30px auto; padding: 0 20px; }
 .profile-card { border-radius: 16px; border: none; box-shadow: 0 2px 12px rgba(0,0,0,0.05); }
-
 .user-header { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #f0f0f0; }
 .u-avatar { border: 1px solid #eee; }
 .info { margin-left: 24px; }
-.info h2 { margin: 0 0 5px 0; color: #0f0f0f; }
+.username-row { display: flex; align-items: center; margin: 0 0 5px 0; color: #0f0f0f; }
 .email { color: #606060; margin: 0; }
-
+.action-buttons { margin-top: 10px; display: flex; gap: 10px; align-items: center; }
 .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
 .video-card { cursor: pointer; transition: transform 0.2s; }
 .video-card:hover { transform: translateY(-3px); }
