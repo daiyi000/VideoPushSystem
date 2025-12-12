@@ -1,7 +1,9 @@
 from app import create_app
 
 app = create_app()
-
+@app.route('/')
+def hello():
+    return "恭喜！内网穿透成功，后端正在运行！"
 # --- 路由自检逻辑 (保留) ---
 print("\n" + "="*30)
 print("正在检查系统路由表...")

@@ -75,3 +75,19 @@ def remove_video_from_playlist():
         db.session.commit()
         return jsonify({'code': 200, 'msg': '移除成功'})
     return jsonify({'code': 400, 'msg': '视频不在列表中'})
+# 【新增】修改播放列表信息
+@playlist_bp.route('/update', methods=['POST'])
+def update_playlist():
+    data = request.get_json()
+    playlist_id = data.get('id')
+    new_title = data.get('title')
+    
+    playlist = Playlist.query.get(playlist_id)
+    if not playlist:
+        return jsonify({'code': 404, 'msg': '播放列表不存在'}), 404
+        
+    if new_title:
+        playlist.title = new_title
+        
+    db.session.commit()
+    return jsonify({'code': 200, 'msg': '修改成功'})

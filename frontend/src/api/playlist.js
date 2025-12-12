@@ -23,3 +23,7 @@ export function removeVideoFromPlaylist(data) {
 export function getPlaylistVideos(id) {
   return request({ url: `/playlist/videos?id=${id}`, method: 'get' });
 }
+// 修改信息 (重命名)
+export const updatePlaylist = (data) => {
+  return request.post('/playlist/update', data);
+};

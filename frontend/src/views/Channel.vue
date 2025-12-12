@@ -1,10 +1,7 @@
 <template>
-  <!-- 增加 v-loading 指令，在加载或跳转期间显示 Loading -->
   <div class="channel-container" v-loading="loading" element-loading-text="正在加载频道...">
-    <!-- 只有当不处于加载状态时，才显示内容 -->
     <div class="channel-layout" v-if="!loading && author.id">
       
-      <!-- 1. 频道头部 -->
       <div class="channel-header">
         <div 
           class="channel-banner" 
@@ -59,7 +56,6 @@
         </div>
       </div>
 
-      <!-- 2. 内容导航 -->
       <div class="channel-nav">
         <div class="nav-tabs">
           <div class="nav-tab" :class="{ active: activeTab === 'videos' }" @click="activeTab = 'videos'">视频</div>
@@ -81,10 +77,8 @@
 
       <el-divider style="margin: 0; border-color: #e5e5e5;" />
 
-      <!-- 3. Tab 内容区 -->
       <div class="content-section">
         
-        <!-- A. 视频列表 -->
         <div v-if="activeTab === 'videos'">
           <div v-if="videoList.length > 0" class="video-grid">
             <div v-for="video in videoList" :key="video.id" class="video-card" @click="goToVideo(video.id)">
@@ -103,7 +97,6 @@
           <el-empty v-else description="该作者还没有相关视频" />
         </div>
 
-        <!-- B. 播放列表 -->
         <div v-if="activeTab === 'playlists'">
           <div v-if="isOwner" style="margin-bottom: 20px;">
             <el-button type="primary" plain @click="openPlaylistDialog">+ 新建播放列表</el-button>
@@ -131,7 +124,6 @@
       </div>
     </div>
 
-    <!-- 弹窗部分保持不变 -->
     <el-dialog v-model="playlistDialogVisible" title="新建播放列表" width="400px" style="border-radius: 12px;">
       <el-input v-model="newPlaylistName" placeholder="输入列表名称" />
       <template #footer>
@@ -150,27 +142,46 @@
         <div class="yt-pl-sidebar" :style="{ backgroundImage: `url(${currentPlaylist?.cover_url})` }">
            <div class="yt-pl-bg-blur"></div>
            <div class="yt-pl-content">
-              <div class="yt-pl-cover-box">
-                <img :src="currentPlaylist?.cover_url" class="yt-pl-cover-img">
-              </div>
-              <h2 class="yt-pl-title">{{ currentPlaylist?.title }}</h2>
-              <div class="yt-pl-owner">{{ author.username }}</div>
-              <div class="yt-pl-meta">
-                <span>{{ currentPlaylistVideos.length }}个视频</span> • <span>{{ currentPlaylist?.created_at }}更新</span>
-              </div>
-              <div class="yt-pl-actions">
-                 <el-button type="primary" round class="play-all-btn" v-if="currentPlaylistVideos.length > 0" @click="goToVideo(currentPlaylistVideos[0].id, currentPlaylist.id)">
-                    <el-icon style="margin-right:5px"><VideoPlay /></el-icon> 播放全部
-                 </el-button>
-                 <el-button type="primary" round class="play-all-btn" v-if="isOwner" @click="addToPlVisible = true">
-                    <el-icon style="margin-right:5px"><Plus /></el-icon> 添加视频
-                 </el-button>
-                 <el-button type="danger" round class="play-all-btn delete-btn" v-if="isOwner" @click="handleDeletePlaylist(currentPlaylist.id)">
-                    <el-icon style="margin-right:5px"><Delete /></el-icon> 删除列表
-                 </el-button>
-              </div>
+             <div class="yt-pl-cover-box">
+               <img :src="currentPlaylist?.cover_url" class="yt-pl-cover-img">
+             </div>
+
+             <div v-if="!isRenaming" class="title-display-area">
+               <h2 class="yt-pl-title">{{ currentPlaylist?.title }}</h2>
+               <el-button v-if="isOwner" type="primary" link @click="startRename" style="color:white; opacity:0.8;">
+                  <el-icon><Edit /></el-icon>
+               </el-button>
+             </div>
+             <div v-else class="title-edit-area">
+                <el-input v-model="renameTitle" size="small" />
+                <div class="rename-actions">
+                  <el-button size="small" type="primary" @click="confirmRename">保存</el-button>
+                  <el-button size="small" link style="color:white" @click="cancelRename">取消</el-button>
+                </div>
+             </div>
+
+             <div class="yt-pl-owner">{{ author.username }}</div>
+             <div class="yt-pl-meta">
+               <span>{{ currentPlaylistVideos.length }}个视频</span> • <span>{{ currentPlaylist?.created_at }}更新</span>
+             </div>
+             
+             <div class="yt-pl-actions">
+                <el-button v-if="!isOwner && currentPlaylistVideos.length > 0" type="primary" round class="play-all-btn" @click="goToVideo(currentPlaylistVideos[0].id, currentPlaylist.id)">
+                   <el-icon style="margin-right:5px"><VideoPlay /></el-icon> 播放全部
+                </el-button>
+
+                <div v-if="isOwner" class="owner-btn-row">
+                    <el-button type="primary" round class="half-btn" @click="addToPlVisible = true">
+                       <el-icon style="margin-right:5px"><Plus /></el-icon> 添加视频
+                    </el-button>
+                    <el-button type="danger" round class="half-btn delete-btn" @click="handleDeletePlaylist(currentPlaylist.id)">
+                       <el-icon style="margin-right:5px"><Delete /></el-icon> 删除列表
+                    </el-button>
+                </div>
+             </div>
            </div>
         </div>
+
         <div class="yt-pl-list-container">
           <div v-if="currentPlaylistVideos.length > 0">
             <div v-for="(v, index) in currentPlaylistVideos" :key="v.id" class="yt-pl-item" @click="goToVideo(v.id, currentPlaylist.id)">
@@ -214,8 +225,8 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '../store/user';
 import { getChannelInfo, toggleFollow, updateProfile, uploadAvatar, uploadBanner } from '../api/user';
-import { createPlaylist, deletePlaylist, addVideoToPlaylist, getPlaylistVideos, removeVideoFromPlaylist } from '../api/playlist'; 
-import { Search, Plus, List, VideoPlay, Camera, Delete } from '@element-plus/icons-vue';
+import { createPlaylist, deletePlaylist, addVideoToPlaylist, getPlaylistVideos, removeVideoFromPlaylist, updatePlaylist } from '../api/playlist'; // 引入 updatePlaylist
+import { Search, Plus, List, VideoPlay, Camera, Delete, Edit } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import ImageCropper from '../components/ImageCropper.vue';
 import VerificationBadge from '../components/VerificationBadge.vue';
@@ -237,6 +248,10 @@ const searchQuery = ref('');
 const playlistDialogVisible = ref(false);
 const viewPlaylistDialogVisible = ref(false);
 const addToPlVisible = ref(false);
+
+// --- 重命名相关状态 ---
+const isRenaming = ref(false);
+const renameTitle = ref('');
 
 const avatarInput = ref(null);
 const bannerInput = ref(null);
@@ -262,26 +277,21 @@ const formatDuration = (seconds) => {
   if (!seconds) return '0:00';
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
-  // 补零操作，保证秒数是两位，例如 1:05
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
 const loadData = async () => {
   loading.value = true;
-
-  // 【新增优化】如果是 ID 访问，且该 ID 是当前登录用户，直接用本地信息跳转，避免闪烁
   if (route.params.id && !route.params.id.startsWith('@') && 
       userStore.token && String(route.params.id) === String(userStore.userInfo.id)) {
     router.replace(`/@${userStore.userInfo.username}`);
     return;
   }
-
   const params = {
     visitor_id: userStore.token ? userStore.userInfo.id : null,
     sort_by: sortBy.value,
     q: searchQuery.value
   };
-
   if (route.params.username) {
     params.username = route.params.username;
   } else if (route.params.id && route.params.id.startsWith('@')) {
@@ -294,23 +304,18 @@ const loadData = async () => {
     loading.value = false;
     return;
   }
-  
   try {
     const res = await getChannelInfo(params);
     if (res.data.code === 200) {
       const d = res.data.data;
-      
-      // 如果是用 ID 查到的，且 URL 还没变，就强制替换为 @username URL
       if (d.author.username && !route.params.username && route.name !== 'ChannelHandle') {
         router.replace(`/@${d.author.username}`);
         return; 
       }
-
       author.value = d.author;
       stats.value = d.stats;
       videoList.value = d.videos;
       playlists.value = d.playlists;
-      
       loading.value = false;
     }
   } catch (e) { 
@@ -340,11 +345,81 @@ const navigateToStudio = (page) => {
 
 const openPlaylistDialog = () => { newPlaylistName.value = ''; playlistDialogVisible.value = true; };
 const handleCreatePlaylist = async () => { if (!newPlaylistName.value) return; const res = await createPlaylist({ title: newPlaylistName.value, user_id: userStore.userInfo.id }); if (res.data.code === 200) { ElMessage.success('创建成功'); loadData(); playlistDialogVisible.value = false; } };
-const handleDeletePlaylist = (id) => { ElMessageBox.confirm('确定删除？', '提示').then(async () => { await deletePlaylist(id); loadData(); viewPlaylistDialogVisible.value = false; }); };
-const handleViewPlaylist = async (pl) => { currentPlaylist.value = pl; try { const res = await getPlaylistVideos(pl.id); if (res.data.code === 200) { currentPlaylistVideos.value = res.data.data; viewPlaylistDialogVisible.value = true; } } catch (e) { ElMessage.error('获取列表失败'); } };
+
+// --- 播放列表操作逻辑 ---
+
+// 查看播放列表
+const handleViewPlaylist = async (pl) => { 
+  currentPlaylist.value = pl; 
+  isRenaming.value = false; // 重置重命名状态
+  try { 
+    const res = await getPlaylistVideos(pl.id); 
+    if (res.data.code === 200) { 
+      currentPlaylistVideos.value = res.data.data; 
+      viewPlaylistDialogVisible.value = true; 
+    } 
+  } catch (e) { 
+    ElMessage.error('获取列表失败'); 
+  } 
+};
+
+// 删除列表
+const handleDeletePlaylist = (id) => { 
+  ElMessageBox.confirm('确定要删除这个播放列表吗？此操作不可恢复。', '警告', {
+    confirmButtonText: '删除',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => { 
+    await deletePlaylist(id); 
+    ElMessage.success('删除成功');
+    loadData(); 
+    viewPlaylistDialogVisible.value = false; 
+  }).catch(()=>{}); 
+};
+
+// 移除视频
+const handleRemoveVideo = (vid) => { 
+  ElMessageBox.confirm('确定从列表中移除此视频吗？', '提示', {
+    confirmButtonText: '移除',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try { 
+      const res = await removeVideoFromPlaylist({ playlist_id: currentPlaylist.value.id, video_id: vid }); 
+      if (res.data.code === 200) { 
+        ElMessage.success('已移除'); 
+        currentPlaylistVideos.value = currentPlaylistVideos.value.filter(v => v.id !== vid); 
+        loadData(); // 刷新外面的 count
+      } 
+    } catch (e) { 
+      ElMessage.error('移除失败'); 
+    } 
+  }).catch(()=>{});
+};
+
+// --- 重命名相关 ---
+const startRename = () => {
+  renameTitle.value = currentPlaylist.value.title;
+  isRenaming.value = true;
+};
+const cancelRename = () => {
+  isRenaming.value = false;
+};
+const confirmRename = async () => {
+  if (!renameTitle.value.trim()) return ElMessage.warning('标题不能为空');
+  try {
+    await updatePlaylist({ id: currentPlaylist.value.id, title: renameTitle.value });
+    currentPlaylist.value.title = renameTitle.value;
+    ElMessage.success('修改成功');
+    isRenaming.value = false;
+    loadData(); // 刷新外部列表标题
+  } catch (e) {
+    ElMessage.error('修改失败');
+  }
+};
+
 const goToVideo = (vid, pid) => { if(pid) router.push({ path: `/video/${vid}`, query: { list: pid } }); else router.push(`/video/${vid}`); };
 const addVideoToPl = async (vid) => { const res = await addVideoToPlaylist({ playlist_id: currentPlaylist.value.id, video_id: vid }); if (res.data.code === 200) { ElMessage.success(res.data.msg); addToPlVisible.value = false; const refreshRes = await getPlaylistVideos(currentPlaylist.value.id); currentPlaylistVideos.value = refreshRes.data.data; loadData(); } };
-const handleRemoveVideo = async (vid) => { try { const res = await removeVideoFromPlaylist({ playlist_id: currentPlaylist.value.id, video_id: vid }); if (res.data.code === 200) { ElMessage.success('已移除'); currentPlaylistVideos.value = currentPlaylistVideos.value.filter(v => v.id !== vid); loadData(); } } catch (e) { ElMessage.error('移除失败'); } };
 
 const triggerAvatarSelect = () => avatarInput.value.click();
 const triggerBannerSelect = () => bannerInput.value.click();
@@ -444,10 +519,19 @@ onMounted(() => loadData());
 .yt-pl-owner { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
 .yt-pl-meta { font-size: 12px; margin-bottom: 20px; opacity: 0.9; }
 .yt-pl-actions { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
-.play-all-btn { width: 100%; background: white; color: black; border: none; font-weight: 600; }
-.play-all-btn:hover { background: #eee; color: black; }
-.play-all-btn.delete-btn { background: #ff4d4f; color: white; }
-.play-all-btn.delete-btn:hover { background: #ff7875; }
+
+/* 按钮样式改造 */
+.owner-btn-row { display: flex; gap: 10px; }
+.half-btn { flex: 1; background: white; color: black; border: none; font-weight: 600; }
+.half-btn:hover { background: #eee; color: black; }
+.half-btn.delete-btn { background: #ff4d4f; color: white; }
+.half-btn.delete-btn:hover { background: #ff7875; }
+
+/* 重命名样式 */
+.title-display-area { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.title-edit-area { margin-bottom: 10px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; }
+.rename-actions { display: flex; justify-content: flex-end; margin-top: 5px; gap: 10px; }
+
 .yt-pl-list-container { flex: 1; background: #fff; overflow-y: auto; padding: 10px 0; }
 .yt-pl-item { display: flex; align-items: center; padding: 10px 20px; cursor: pointer; transition: background 0.1s; position: relative; }
 .yt-pl-item:hover { background: #f2f2f2; }
