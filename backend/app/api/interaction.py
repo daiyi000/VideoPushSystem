@@ -6,19 +6,15 @@ from flasgger import swag_from
 
 interaction_bp = Blueprint('interaction', __name__)
 
-def get_doc_path(filename):
-    return os.path.join(os.path.dirname(__file__), '../docs/interaction', filename)
-
 # --- 评论功能 (升级版) ---
 
 @interaction_bp.route('/comments', methods=['GET'])
-@swag_from(get_doc_path('comments.yml'))
+@swag_from('../docs/interaction/comments.yml') # <--- 修改
 def get_comments():
     video_id = request.args.get('video_id')
-    user_id = request.args.get('user_id', type=int) # 获取当前查看的用户ID
+    user_id = request.args.get('user_id', type=int) 
     sort_by = request.args.get('sort_by', 'hot')
     
-    # 1. 查找所有该用户点赞过的评论ID (用于标记)
     liked_comment_ids = set()
     if user_id:
         user_likes = CommentLike.query.filter_by(user_id=user_id).all()
@@ -33,7 +29,6 @@ def get_comments():
     
     data = []
     for c in comments:
-        # 获取子评论
         replies_obj = c.replies.order_by(Comment.timestamp.asc()).all()
         replies_data = []
         for r in replies_obj:
@@ -42,7 +37,7 @@ def get_comments():
                 'content': r.content,
                 'time': r.timestamp.strftime('%Y-%m-%d %H:%M'),
                 'likes': r.likes,
-                'is_liked': r.id in liked_comment_ids, # 标记子评论是否点赞
+                'is_liked': r.id in liked_comment_ids,
                 'user': {'id': r.user.id, 'username': r.user.username, 'avatar': r.user.avatar, 'verification_type': r.user.verification_type}
             })
 
@@ -52,7 +47,7 @@ def get_comments():
             'time': c.timestamp.strftime('%Y-%m-%d %H:%M'),
             'likes': c.likes,
             'is_pinned': c.is_pinned,
-            'is_liked': c.id in liked_comment_ids, # 标记主评论是否点赞
+            'is_liked': c.id in liked_comment_ids,
             'user': {'id': c.user.id, 'username': c.user.username, 'avatar': c.user.avatar, 'verification_type': c.user.verification_type},
             'replies': replies_data
         })
@@ -60,7 +55,7 @@ def get_comments():
     return jsonify({'code': 200, 'data': data})
 
 @interaction_bp.route('/comment/add', methods=['POST'])
-@swag_from(get_doc_path('add_comment.yml'))
+@swag_from('../docs/interaction/add_comment.yml') # <--- 修改
 def add_comment():
     data = request.get_json()
     new_comment = Comment(
@@ -73,9 +68,8 @@ def add_comment():
     db.session.commit()
     return jsonify({'code': 200, 'msg': '评论成功'})
 
-# 【核心修改】评论点赞 (切换模式)
 @interaction_bp.route('/comment/like', methods=['POST'])
-@swag_from(get_doc_path('like_comment.yml'))
+@swag_from('../docs/interaction/like_comment.yml') # <--- 修改
 def like_comment():
     data = request.get_json()
     comment_id = data.get('comment_id')
@@ -88,17 +82,14 @@ def like_comment():
     if not comment:
         return jsonify({'code': 404, 'msg': '评论不存在'}), 404
 
-    # 检查是否已经点赞
     existing_like = CommentLike.query.filter_by(user_id=user_id, comment_id=comment_id).first()
     
     action = ''
     if existing_like:
-        # 如果已点赞 -> 取消点赞
         db.session.delete(existing_like)
         comment.likes = max(0, comment.likes - 1)
         action = 'unlike'
     else:
-        # 如果未点赞 -> 添加点赞
         new_like = CommentLike(user_id=user_id, comment_id=comment_id)
         db.session.add(new_like)
         comment.likes += 1
@@ -107,9 +98,8 @@ def like_comment():
     db.session.commit()
     return jsonify({'code': 200, 'msg': '操作成功', 'likes': comment.likes, 'action': action})
 
-# 置顶评论
 @interaction_bp.route('/comment/pin', methods=['POST'])
-@swag_from(get_doc_path('pin_comment.yml'))
+@swag_from('../docs/interaction/pin_comment.yml') # <--- 修改
 def pin_comment():
     data = request.get_json()
     comment_id = data.get('comment_id')
@@ -133,9 +123,8 @@ def pin_comment():
     db.session.commit()
     return jsonify({'code': 200, 'msg': '操作成功'})
 
-# --- 弹幕 & 状态 --- (保持不变)
 @interaction_bp.route('/danmaku', methods=['GET'])
-@swag_from(get_doc_path('danmaku.yml'))
+@swag_from('../docs/interaction/danmaku.yml') # <--- 修改
 def get_danmaku():
     video_id = request.args.get('video_id')
     danmakus = Danmaku.query.filter_by(video_id=video_id).all()
@@ -143,7 +132,7 @@ def get_danmaku():
     return jsonify({'code': 200, 'data': data})
 
 @interaction_bp.route('/danmaku/send', methods=['POST'])
-@swag_from(get_doc_path('send_danmaku.yml'))
+@swag_from('../docs/interaction/send_danmaku.yml') # <--- 修改
 def send_danmaku():
     data = request.get_json()
     new_dm = Danmaku(
@@ -155,7 +144,7 @@ def send_danmaku():
     return jsonify({'code': 200, 'msg': '发送成功'})
 
 @interaction_bp.route('/check_status', methods=['GET'])
-@swag_from(get_doc_path('check_status.yml'))
+@swag_from('../docs/interaction/check_status.yml') # <--- 修改
 def check_status():
     user_id = request.args.get('user_id')
     video_id = request.args.get('video_id')
@@ -169,6 +158,6 @@ def check_status():
         'data': {
             'is_fav': bool(is_fav), 
             'is_like': bool(is_like),
-            'last_progress': last_progress  # 返回给前端
+            'last_progress': last_progress
         }
     })

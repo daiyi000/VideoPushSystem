@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # 1. 数据库服务
+  db:
+    image: mysql:8.0
+    container_name: bishe_mysql
+    ports:
+      - "3306:3306"
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456  
+      MYSQL_DATABASE: video_push_db
+    volumes:
+      - ./data/mysql:/var/lib/mysql       # 数据持久化，防止删容器后数据丢失
+    networks:
+      - bishe-net
+
+  # 2. 后端服务
+  backend:
+    build: ./backend
+    container_name: bishe_backend
+    restart: always
+    depends_on:
+      - db
+    ports:
+      - "5000:5000"
+    environment:
+      DB_HOST: db             # 代码里的数据库地址要改成 'db'，不是 localhost
+      DB_USER: root
+      DB_PASSWORD: 123456
+      SITE_DOMAIN: "https://pay.aeasywink.top"
+    volumes:
+      - ./backend/static:/app/static # 映射上传文件夹，保证上传的文件不丢失
+    networks:
+      - bishe-net
+
+  # 3. 前端服务 (Nginx)
+  frontend:
+    build: ./frontend
+    container_name: bishe_frontend
+    restart: always
+    ports:
+      - "80:80"               # 浏览器访问 http://localhost 即可
+    depends_on:
+      - backend
+    networks:
+      - bishe-net
+
+  # 4. Cloudflared 内网穿透
+  tunnel:
+    image: cloudflare/cloudflared
+    container_name: bishe_tunnel
+    restart: always
+    # 使用 token 方式最简单 (去 Cloudflare 后台复制那串长 token)
+    command: tunnel run --token eyJhIjoiZTQ4Yzc3MmEzMzE1OWNlZjM1ODdjZTc2MDMxN2ZiMmMiLCJ0IjoiNDk1ZmVmYjAtZjU4Ny00ODBhLWIxMjgtN2JmMGI4YzhhZWE5IiwicyI6Ik56Y3lZMlV3TURrdFpXSTFOaTAwTWpObExUazRaRGN0WVRGbU5tUTFOV0UzWkRSbSJ9
+    networks:
+      - bishe-net
+
+networks:
+  bishe-net:
+    driver: bridge

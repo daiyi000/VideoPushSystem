@@ -6,15 +6,11 @@ from werkzeug.security import generate_password_hash
 from ..models import User, Video, ActionLog, Follow, Playlist, db
 from flasgger import swag_from
 
-def get_doc_path(filename):
-    return os.path.join(os.path.dirname(__file__), '../docs/user', filename)
-
 user_bp = Blueprint('user', __name__)
 
 ALLOWED_IMG_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 def allowed_file(filename): return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMG_EXTENSIONS
 
-# ... (upload_avatar, upload_banner, profile, toggle_follow 保持不变) ...
 @user_bp.route('/upload_avatar', methods=['POST'])
 def upload_avatar():
     if 'file' not in request.files: return jsonify({'code': 400, 'msg': '没有文件'}), 400
@@ -48,7 +44,7 @@ def upload_banner():
     return jsonify({'code': 400, 'msg': '格式不支持'})
 
 @user_bp.route('/profile', methods=['GET', 'POST'])
-@swag_from(get_doc_path('profile.yml'))
+@swag_from('../docs/user/profile.yml')  # <--- 修改：简洁路径
 def profile():
     user_id = None
     if request.method == 'GET':
@@ -81,7 +77,7 @@ def profile():
             return jsonify({'code': 500, 'msg': f'数据库错误: {str(e)}'}), 500
 
 @user_bp.route('/follow', methods=['POST'])
-@swag_from(get_doc_path('follow.yml'))
+@swag_from('../docs/user/follow.yml')  # <--- 修改：简洁路径
 def toggle_follow():
     data = request.get_json()
     follower_id = data.get('follower_id')
@@ -101,7 +97,7 @@ def toggle_follow():
     return jsonify({'code': 200, 'msg': '操作成功', 'is_following': is_following, 'fans_count': fans_count})
 
 @user_bp.route('/channel_info', methods=['GET'])
-@swag_from(get_doc_path('channel_info.yml'))
+@swag_from('../docs/user/channel_info.yml')  # <--- 修改：简洁路径
 def get_channel_info():
     author_id = request.args.get('author_id')
     username = request.args.get('username')
@@ -129,11 +125,8 @@ def get_channel_info():
             
     query = Video.query.filter_by(uploader_id=target_id)
     
-    # 【核心修复】过滤逻辑
     if not is_owner:
         query = query.filter_by(status=1, visibility='public')
-    else:
-        pass # 主人看全部
     
     if keyword:
         rule = f"%{keyword}%"
@@ -158,7 +151,6 @@ def get_channel_info():
         }
     })
 
-# ... (following_list, my_videos, etc. 保持不变) ...
 @user_bp.route('/following_list', methods=['GET'])
 def get_following_list():
     user_id = request.args.get('user_id')
@@ -206,7 +198,6 @@ def my_history():
         video = Video.query.get(log.video_id)
         if video:
             v_dict = video.to_dict()
-            # 注入进度
             v_dict['progress'] = log.progress 
             if video.duration and video.duration > 0:
                 percent = (log.progress / video.duration) * 100

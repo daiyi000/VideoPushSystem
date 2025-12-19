@@ -10,8 +10,9 @@ class Config:
     SECRET_KEY = '8f4b2e1d9a3c5e7b1a2d3e4f5g6h7i8j9k0l1m2n3o4p5q6r7s8t9u0v'
     
     # 数据库连接配置
+    db_host = os.getenv('DB_HOST', 'localhost')
+    SQLALCHEMY_DATABASE_URI = f'mysql+pymysql://root:123456@{db_host}/video_push_db'
     
-    SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://root:123456@localhost/video_push_db'
     
     # 关闭追踪，节省内存
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -30,8 +31,9 @@ class Config:
     # 支付宝沙盒配置
     ALIPAY_APPID = os.getenv("ALIPAY_APPID")
     ALIPAY_DEBUG = True
+    site_domain = os.getenv('SITE_DOMAIN', 'http://localhost:5173')
     
-    ALIPAY_RETURN_URL = "http://localhost:5173/pay/result"
+    ALIPAY_RETURN_URL = f"{site_domain}/pay/result"
     
     ALIPAY_NOTIFY_URL = "https://pay.aeasywink.top/api/pay/notify" 
 

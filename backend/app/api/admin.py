@@ -6,19 +6,13 @@ from ..models import User, Video, ActionLog, db, Comment, Danmaku, playlist_vide
 
 admin_bp = Blueprint('admin', __name__)
 
-def get_doc_path(filename):
-    return os.path.join(os.path.dirname(__file__), '../docs/admin', filename)
-
-# 1. 仪表盘数据统计 (Dashboard Stats)
 @admin_bp.route('/stats', methods=['GET'])
-@swag_from(get_doc_path('stats.yml'))
+@swag_from('../docs/admin/stats.yml') # <--- 修改
 def get_stats():
-    # A. 基础计数
     total_users = User.query.count()
     total_videos = Video.query.count()
     pending_videos = Video.query.filter_by(status=0).count()
     
-    # B. 每日新增用户 (最近7天)
     daily_users = db.session.query(
         func.date(User.created_at).label('date'), 
         func.count(User.id)
@@ -29,17 +23,15 @@ def get_stats():
         'counts': [r[1] for r in daily_users]
     }
     
-    # C. 视频分类占比
     category_stats = db.session.query(
         Video.category, func.count(Video.id)
     ).group_by(Video.category).all()
     
     chart_category = [{'name': r[0], 'value': r[1]} for r in category_stats]
     
-    # D. 热门视频 Top 10
     top_videos = Video.query.order_by(Video.views.desc()).limit(10).all()
     chart_top10 = {
-        'titles': [v.title[:10] + '...' for v in top_videos], # 截断标题
+        'titles': [v.title[:10] + '...' for v in top_videos], 
         'views': [v.views for v in top_videos]
     }
 
@@ -55,9 +47,8 @@ def get_stats():
         }
     })
 
-# 2. 视频管理 (列表 + 搜索 + 筛选)
 @admin_bp.route('/videos', methods=['GET'])
-@swag_from(get_doc_path('videos.yml'))
+@swag_from('../docs/admin/videos.yml') # <--- 修改
 def get_admin_videos():
     status = request.args.get('status')
     q = request.args.get('q')
@@ -71,13 +62,12 @@ def get_admin_videos():
     videos = query.order_by(Video.upload_time.desc()).all()
     return jsonify({'code': 200, 'data': [v.to_dict() for v in videos]})
 
-# 3. 视频审核/操作 (通过、驳回/下架、修改)
 @admin_bp.route('/video/audit', methods=['POST'])
-@swag_from(get_doc_path('audit_video.yml'))
+@swag_from('../docs/admin/audit_video.yml') # <--- 修改
 def audit_video():
     data = request.get_json()
     video_id = data.get('id')
-    new_status = data.get('status') # 1=通过, 2=下架
+    new_status = data.get('status') 
     
     video = Video.query.get(video_id)
     if not video: return jsonify({'code': 404, 'msg': '视频不存在'})
@@ -86,9 +76,8 @@ def audit_video():
     db.session.commit()
     return jsonify({'code': 200, 'msg': '操作成功'})
 
-# 4. 管理员删除视频 (包含级联删除逻辑)
 @admin_bp.route('/video/delete', methods=['POST'])
-@swag_from(get_doc_path('delete_video.yml'))
+@swag_from('../docs/admin/delete_video.yml') # <--- 修改
 def delete_video_admin():
     data = request.get_json()
     video_id = data.get('id')
@@ -96,19 +85,10 @@ def delete_video_admin():
     video = Video.query.get(video_id)
     if video:
         try:
-            # 1. 删除播放列表关联
             db.session.execute(playlist_video.delete().where(playlist_video.c.video_id == video_id))
-            
-            # 2. 删除弹幕
             Danmaku.query.filter_by(video_id=video_id).delete()
-            
-            # 3. 删除评论
             Comment.query.filter_by(video_id=video_id).delete()
-            
-            # 4. 删除行为日志 (点赞/历史)
             ActionLog.query.filter_by(video_id=video_id).delete()
-            
-            # 5. 最后删除视频本体
             db.session.delete(video)
             db.session.commit()
             return jsonify({'code': 200, 'msg': '删除成功'})
@@ -119,9 +99,8 @@ def delete_video_admin():
             
     return jsonify({'code': 404, 'msg': '视频不存在'})
 
-# 5. 用户管理 (列表 + 搜索)
 @admin_bp.route('/users', methods=['GET'])
-@swag_from(get_doc_path('users.yml'))
+@swag_from('../docs/admin/users.yml') # <--- 修改
 def get_admin_users():
     q = request.args.get('q')
     query = User.query
@@ -131,15 +110,13 @@ def get_admin_users():
     users = query.all()
     return jsonify({'code': 200, 'data': [u.to_dict() for u in users]})
 
-# 6. 用户封禁/解封
 @admin_bp.route('/user/ban', methods=['POST'])
-@swag_from(get_doc_path('ban_user.yml'))
+@swag_from('../docs/admin/ban_user.yml') # <--- 修改
 def ban_user():
     data = request.get_json()
     user = User.query.get(data.get('id'))
     if not user: return jsonify({'code': 404, 'msg': '用户不存在'})
     
-    # 切换封禁状态
     user.is_banned = not user.is_banned
     db.session.commit()
     

@@ -12,9 +12,6 @@ from sqlalchemy import func
 
 video_bp = Blueprint('video', __name__)
 
-def get_doc_path(filename):
-    return os.path.join(os.path.dirname(__file__), '../docs/video', filename)
-
 ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv'}
 
 def allowed_file(filename):
@@ -27,8 +24,6 @@ def generate_auto_thumbnails(video_path, output_folder, file_prefix):
     
     try:
         cap = cv2.VideoCapture(video_path)
-        
-        # 获取视频元数据
         fps = cap.get(cv2.CAP_PROP_FPS)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -37,7 +32,6 @@ def generate_auto_thumbnails(video_path, output_folder, file_prefix):
         if fps > 0:
             duration = int(total_frames / fps)
             
-        # 【核心逻辑】判断是否为 Shorts: 时长 <= 60秒 且 高 >= 宽
         if duration <= 60 and height >= width:
             is_short = True
             
@@ -58,9 +52,8 @@ def generate_auto_thumbnails(video_path, output_folder, file_prefix):
     
     return thumbnails, duration, is_short
 
-# 1. 上传接口
 @video_bp.route('/upload_file', methods=['POST'])
-@swag_from(get_doc_path('upload.yml'))
+@swag_from('../docs/video/upload.yml') # <--- 修改
 def upload_video_file():
     if 'file' not in request.files: return jsonify({'code': 400, 'msg': '无文件'})
     file = request.files['file']
@@ -82,7 +75,6 @@ def upload_video_file():
         base_url = "http://localhost:5000"
         video_url = f"{base_url}/static/uploads/{new_video_name}"
         
-        # 自动生成封面并判断是否为 Short
         auto_covers, duration, is_short = generate_auto_thumbnails(video_path, cover_folder, f"{timestamp}_{filename}")
         default_cover = auto_covers[0] if auto_covers else "https://via.placeholder.com/300x200"
 
@@ -93,7 +85,7 @@ def upload_video_file():
             cover_url=default_cover,
             uploader_id=uploader_id,
             duration=duration,
-            is_short=is_short, # 存入数据库
+            is_short=is_short, 
             status=-1, 
             visibility='private' 
         )
@@ -113,10 +105,8 @@ def upload_video_file():
         })
     return jsonify({'code': 400, 'msg': '格式不支持'})
 
-# ... (publish, update, delete, action 等其他接口保持不变) ...
-
 @video_bp.route('/publish', methods=['POST'])
-@swag_from(get_doc_path('publish.yml'))
+@swag_from('../docs/video/publish.yml') # <--- 修改
 def publish_video():
     data = request.get_json()
     video = Video.query.get(data.get('id'))
@@ -170,7 +160,7 @@ def update_video():
     return jsonify({'code': 200, 'msg': msg})
 
 @video_bp.route('/list', methods=['GET'])
-@swag_from(get_doc_path('list.yml'))
+@swag_from('../docs/video/list.yml') # <--- 修改
 def get_video_list():
     category = request.args.get('category')
     search_query = request.args.get('q')
@@ -183,7 +173,7 @@ def get_video_list():
     return jsonify({'code': 200, 'data': [v.to_dict() for v in videos]})
 
 @video_bp.route('/<int:video_id>', methods=['GET'])
-@swag_from(get_doc_path('detail.yml'))
+@swag_from('../docs/video/detail.yml') # <--- 修改
 def get_video_detail(video_id):
     video = Video.query.get(video_id)
     if not video: return jsonify({'code': 404, 'msg': '视频不存在'}), 404
@@ -227,16 +217,14 @@ def delete_video(video_id):
         return jsonify({'code': 500, 'msg': '删除失败'})
 
 @video_bp.route('/action', methods=['POST'])
-@swag_from(get_doc_path('action.yml'))
+@swag_from('../docs/video/action.yml') # <--- 修改
 def video_action():
     data = request.get_json()
     user_id = data.get('user_id')
     video_id = data.get('video_id')
     action_type = data.get('type')
     
-    # 1. 处理 "观看/进入页面" (view)
     if action_type == 'view':
-        # 【核心修改】先查找是否已存在记录
         existing_log = ActionLog.query.filter_by(
             user_id=user_id, 
             video_id=video_id, 
@@ -244,51 +232,41 @@ def video_action():
         ).first()
 
         if existing_log:
-            # 如果存在：只更新“最后观看时间”，保留原有的 progress！
             existing_log.timestamp = datetime.utcnow()
-            # 注意：这里千万不要写 existing_log.progress = 0
         else:
-            # 如果不存在：才创建新记录
             log = ActionLog(user_id=user_id, video_id=video_id, action_type='view', progress=0)
             db.session.add(log)
         
-    # 2. 处理 "更新进度" (progress)
     elif action_type == 'progress':
         progress = data.get('progress', 0)
-        # 查找记录进行更新
         log = ActionLog.query.filter_by(
             user_id=user_id, 
             video_id=video_id, 
             action_type='view'
-        ).first() # 这里不需要 order_by 了，因为现在逻辑保证了唯一性(或只操作这一个)
+        ).first()
 
         if log:
             log.progress = int(progress)
-            log.timestamp = datetime.utcnow() # 更新进度时也顺便更新时间
+            log.timestamp = datetime.utcnow()
         else:
-            # 防御性代码：如果万一没找到（极少见），补一条
             log = ActionLog(user_id=user_id, video_id=video_id, action_type='view', progress=int(progress))
             db.session.add(log)
 
-    # 3. 处理 "收藏" (favorite)
     elif action_type == 'favorite':
         exists = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='favorite').first()
         if not exists:
             log = ActionLog(user_id=user_id, video_id=video_id, action_type='favorite', weight=5)
             db.session.add(log)
     
-    # 4. 处理 "取消收藏" (unfavorite)
     elif action_type == 'unfavorite':
         ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='favorite').delete()
     
-    # 5. 处理 "点赞" (like)
     elif action_type == 'like':
         exists = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='like').first()
         if not exists:
             log = ActionLog(user_id=user_id, video_id=video_id, action_type='like', weight=3)
             db.session.add(log)
     
-    # 6. 处理 "取消点赞" (unlike)
     elif action_type == 'unlike':
         ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='like').delete()
         

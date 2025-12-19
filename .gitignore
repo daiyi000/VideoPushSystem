@@ -22,6 +22,9 @@ build/
 *.sqlite3
 *.db
 
+# 忽略 Docker 挂载的数据库数据目录
+data/
+
 # 环境变量 (包含敏感信息)
 .env
 .flaskenv
