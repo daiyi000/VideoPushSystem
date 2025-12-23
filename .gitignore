@@ -59,6 +59,8 @@ pnpm-debug.log*
 *.png
 *.gif
 *.svg
+!frontend/src/assets/icons/
+!frontend/src/assets/icons/**
 *.webp
 *.bmp
 *.tiff
