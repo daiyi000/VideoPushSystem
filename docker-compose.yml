@@ -1,19 +1,20 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # 1. 数据库服务
   db:
     image: mysql:8.0
     container_name: bishe_mysql
-    ports:
-      - "3306:3306"
     command: --default-authentication-plugin=mysql_native_password
     restart: always
+    # 建议：不要把 MySQL 直接暴露到公网
+    ports:
+      - "127.0.0.1:3306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: 123456  
-      MYSQL_DATABASE: video_push_db
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
     volumes:
-      - ./data/mysql:/var/lib/mysql       # 数据持久化，防止删容器后数据丢失
+      - ./data/mysql:/var/lib/mysql
     networks:
       - bishe-net
 
@@ -24,15 +25,16 @@ services:
     restart: always
     depends_on:
       - db
+    # 建议：后端不直接对公网开端口，交给 1Panel 反代
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     environment:
-      DB_HOST: db             # 代码里的数据库地址要改成 'db'，不是 localhost
-      DB_USER: root
-      DB_PASSWORD: 123456
-      SITE_DOMAIN: "https://pay.aeasywink.top"
+      DB_HOST: ${DB_HOST}       # db
+      DB_USER: ${DB_USER}       # root
+      DB_PASSWORD: ${DB_PASSWORD}
+      SITE_DOMAIN: ${SITE_DOMAIN}
     volumes:
-      - ./backend/static:/app/static # 映射上传文件夹，保证上传的文件不丢失
+      - ./backend/static:/app/static
     networks:
       - bishe-net
 
@@ -41,10 +43,11 @@ services:
     build: ./frontend
     container_name: bishe_frontend
     restart: always
-    ports:
-      - "80:80"               # 浏览器访问 http://localhost 即可
     depends_on:
       - backend
+    # 建议：前端不直接占 80，交给 1Panel 反代到 8080
+    ports:
+      - "127.0.0.1:8080:80"
     networks:
       - bishe-net
 
@@ -53,8 +56,7 @@ services:
     image: cloudflare/cloudflared
     container_name: bishe_tunnel
     restart: always
-    # 使用 token 方式最简单 (去 Cloudflare 后台复制那串长 token)
-    command: tunnel run --token eyJhIjoiZTQ4Yzc3MmEzMzE1OWNlZjM1ODdjZTc2MDMxN2ZiMmMiLCJ0IjoiNDk1ZmVmYjAtZjU4Ny00ODBhLWIxMjgtN2JmMGI4YzhhZWE5IiwicyI6Ik56Y3lZMlV3TURrdFpXSTFOaTAwTWpObExUazRaRGN0WVRGbU5tUTFOV0UzWkRSbSJ9
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}
     networks:
       - bishe-net
 
