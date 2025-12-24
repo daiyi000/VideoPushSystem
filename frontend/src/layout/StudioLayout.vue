@@ -40,7 +40,22 @@
         <div class="page-title">{{ currentPageTitle }}</div>
         <div class="header-right">
           <el-button type="primary" size="small" @click="$router.push('/upload')">创建</el-button>
-          <el-avatar :size="32" :src="userStore.userInfo.avatar" />
+          
+          <el-dropdown trigger="click" @command="handleCommand">
+            <div style="cursor: pointer; display: flex; align-items: center;">
+               <el-avatar :size="32" :src="userStore.userInfo.avatar" />
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <div style="padding:10px;text-align:center;font-weight:bold;border-bottom:1px solid #eee">
+                  {{ userStore.userInfo.username }}
+                </div>
+                <el-dropdown-item command="channel">您的频道</el-dropdown-item>
+                <el-dropdown-item command="exit">退出工作室</el-dropdown-item>
+                <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </header>
       <div class="content-scroll">
@@ -70,6 +85,17 @@ const currentPageTitle = computed(() => {
   const item = menuItems.find(i => route.path.includes(i.path));
   return item ? item.label : '频道工作室';
 });
+
+const handleCommand = (cmd) => {
+  if (cmd === 'logout') {
+    userStore.logout();
+    router.push('/login');
+  } else if (cmd === 'channel') {
+    router.push(`/channel/${userStore.userInfo.id}`);
+  } else if (cmd === 'exit') {
+    router.push('/');
+  }
+};
 </script>
 
 <style scoped>

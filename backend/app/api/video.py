@@ -205,6 +205,28 @@ def upload_video_file():
         })
     return jsonify({'code': 400, 'msg': '格式不支持'})
 
+@video_bp.route('/upload_subtitle', methods=['POST'])
+def upload_subtitle():
+    if 'file' not in request.files: return jsonify({'code': 400, 'msg': '无文件'})
+    file = request.files['file']
+    
+    # 允许字幕格式
+    if file and (file.filename.endswith('.vtt') or file.filename.endswith('.srt')):
+        filename = secure_filename(file.filename)
+        timestamp = int(time.time())
+        static_folder = os.path.join(os.getcwd(), 'app/static')
+        subtitle_folder = os.path.join(static_folder, 'subtitles')
+        os.makedirs(subtitle_folder, exist_ok=True)
+        
+        new_name = f"{timestamp}_{filename}"
+        save_path = os.path.join(subtitle_folder, new_name)
+        file.save(save_path)
+        
+        url = f"/static/subtitles/{new_name}"
+        return jsonify({'code': 200, 'msg': '字幕上传成功', 'url': url})
+        
+    return jsonify({'code': 400, 'msg': '仅支持 .vtt 或 .srt 格式'})
+
 @video_bp.route('/publish', methods=['POST'])
 @swag_from('../docs/video/publish.yml') # <--- 修改
 def publish_video():
@@ -217,6 +239,8 @@ def publish_video():
     if 'tags' in data: video.tags = data['tags']
     if 'cover_url' in data: video.cover_url = data['cover_url']
     if 'visibility' in data: video.visibility = data['visibility']
+    if 'subtitle_url' in data: video.subtitle_url = data['subtitle_url']
+    if 'end_screen_video_ids' in data: video.end_screen_video_ids = data['end_screen_video_ids']
     
     action = data.get('action')
     if action == 'draft':
@@ -248,6 +272,8 @@ def update_video():
     if 'category' in data: video.category = data['category']
     if 'tags' in data: video.tags = data['tags']
     if 'cover_url' in data: video.cover_url = data['cover_url']
+    if 'subtitle_url' in data: video.subtitle_url = data['subtitle_url']
+    if 'end_screen_video_ids' in data: video.end_screen_video_ids = data['end_screen_video_ids']
     
     if action == 'draft':
         video.status = -1
@@ -270,6 +296,18 @@ def get_video_list():
         rule = f"%{search_query}%"
         query = query.join(User).filter((Video.title.like(rule)) | (Video.description.like(rule)) | (User.username.like(rule)))
     videos = query.order_by(Video.upload_time.desc()).all()
+    return jsonify({'code': 200, 'data': [v.to_dict() for v in videos]})
+
+@video_bp.route('/batch_info', methods=['POST'])
+def get_videos_by_ids():
+    data = request.get_json()
+    ids_str = data.get('ids') # "1,2,3"
+    if not ids_str: return jsonify({'code': 200, 'data': []})
+    
+    id_list = [int(i) for i in ids_str.split(',') if i.isdigit()]
+    if not id_list: return jsonify({'code': 200, 'data': []})
+    
+    videos = Video.query.filter(Video.id.in_(id_list)).all()
     return jsonify({'code': 200, 'data': [v.to_dict() for v in videos]})
 
 @video_bp.route('/<int:video_id>', methods=['GET'])

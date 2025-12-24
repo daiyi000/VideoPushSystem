@@ -13,9 +13,13 @@
                 ref="videoRef"
                 :src="video.url" 
                 :autoplay="true"
+                :end-screen-data="endScreenVideos"
+                :post-roll-data="relatedVideos"
+                :subtitle-url="video.subtitle_url"
                 @timeupdate="handleTimeUpdate"
                 @play="onVideoPlay"
                 @pause="onVideoPause"
+                @navigate="goToVideo"
               />
               
               <!-- 弹幕层 -->
@@ -260,6 +264,7 @@ import { getRelatedVideos } from '../api/recommend';
 import { getComments, sendComment, likeComment, pinComment, getDanmaku, sendDanmaku, checkInteractionStatus } from '../api/interaction';
 import { toggleFollow, getChannelInfo } from '../api/user';
 import { getPlaylistVideos } from '../api/playlist'; 
+import { getVideosByIds } from '../api/video';
 import { ElMessage } from 'element-plus';
 import { Star, StarFilled, Sort, CaretBottom, CaretTop, MoreFilled, Top, VideoPlay, Edit } from '@element-plus/icons-vue';
 import CustomVideoPlayer from '../components/CustomVideoPlayer.vue';
@@ -273,6 +278,7 @@ const videoRef = ref(null);
 
 const video = ref(null);
 const relatedVideos = ref([]);
+const endScreenVideos = ref([]);
 const currentLikes = ref(0);
 const interaction = ref({ is_fav: false, is_like: false });
 const channelStats = ref({ fans: 0, is_following: false });
@@ -307,6 +313,17 @@ const loadPageData = async (videoId) => {
     const res = await getVideoDetail(videoId);
     video.value = res.data.data;
     currentLikes.value = res.data.data.likes || 0;
+    
+    if (video.value.end_screen_video_ids) {
+        try {
+            const esRes = await getVideosByIds(video.value.end_screen_video_ids);
+            if(esRes.data.code === 200) {
+                endScreenVideos.value = esRes.data.data;
+            }
+        } catch(e) { console.error('End screen fetch failed', e); }
+    } else {
+        endScreenVideos.value = [];
+    }
     
     // 获取频道信息
     const channelRes = await getChannelInfo({

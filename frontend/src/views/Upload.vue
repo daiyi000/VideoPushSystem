@@ -97,15 +97,29 @@
             <!-- STEP 1: 视频元素 -->
             <div v-show="currentStep === 1" class="step-content">
               <h3 class="section-title">视频元素</h3>
+              
+              <!-- 字幕 -->
               <div class="element-row">
                 <div class="ele-icon"><el-icon><List /></el-icon></div>
                 <div class="ele-info"><h4>添加字幕</h4><p>添加字幕可让更广泛的受众群体欣赏你的视频</p></div>
-                <el-button plain disabled>添加</el-button>
+                <el-button plain @click="triggerSubtitle" v-if="!form.subtitle_url">添加</el-button>
+                <div v-else style="display:flex;align-items:center;gap:10px">
+                   <el-tag type="success">已添加字幕</el-tag>
+                   <el-button link type="danger" @click="form.subtitle_url = ''">删除</el-button>
+                </div>
+                <input type="file" ref="subtitleInput" accept=".vtt,.srt" style="display:none" @change="handleSubtitleSelected" />
               </div>
+              
+              <!-- 片尾画面 -->
               <div class="element-row">
                 <div class="ele-icon"><el-icon><VideoPlay /></el-icon></div>
                 <div class="ele-info"><h4>添加片尾画面</h4><p>宣传相关内容</p></div>
-                <el-button plain disabled>导入</el-button>
+                <el-button plain @click="openEndScreenModal" v-if="!form.end_screen_video_ids">添加</el-button>
+                 <div v-else style="display:flex;align-items:center;gap:10px">
+                   <el-tag type="success">已选择 {{ form.end_screen_video_ids.split(',').length }} 个视频</el-tag>
+                   <el-button link type="primary" @click="openEndScreenModal">修改</el-button>
+                   <el-button link type="danger" @click="form.end_screen_video_ids = ''">删除</el-button>
+                </div>
               </div>
             </div>
 
@@ -185,6 +199,34 @@
     
     <ImageCropper ref="cropperRef" title="裁剪封面" :aspect-ratio="16/9" @upload="doUploadCustomCover" />
 
+    <!-- 片尾视频选择弹窗 -->
+    <el-dialog v-model="endScreenVisible" title="选择片尾推荐视频" width="600px" append-to-body>
+       <div class="end-screen-selector">
+          <p style="margin-bottom:10px;color:#666">请选择 1-2 个视频用于片尾推荐</p>
+          <div v-loading="loadingMyVideos" class="video-select-list">
+             <div 
+               v-for="v in myVideos" 
+               :key="v.id" 
+               class="video-select-item"
+               :class="{ selected: tempSelectedIds.includes(v.id) }"
+               @click="toggleVideoSelection(v.id)"
+             >
+                <img :src="v.cover_url" class="select-thumb">
+                <div class="select-info">
+                   <div class="select-title">{{ v.title }}</div>
+                   <div class="select-meta">{{ v.upload_time }}</div>
+                </div>
+                <el-icon v-if="tempSelectedIds.includes(v.id)" class="check-icon" color="#409EFF"><Check /></el-icon>
+             </div>
+             <el-empty v-if="myVideos.length === 0" description="暂无可用视频" />
+          </div>
+       </div>
+       <template #footer>
+          <el-button @click="endScreenVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmEndScreen">确定</el-button>
+       </template>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -192,7 +234,7 @@
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '../store/user';
-import { uploadVideoFile, uploadVideoChunk, mergeVideoChunks, publishVideo, updateVideo, getVideoDetail } from '../api/video';
+import { uploadVideoFile, uploadVideoChunk, mergeVideoChunks, publishVideo, updateVideo, getVideoDetail, uploadSubtitle, getCreatorStats } from '../api/video';
 import { uploadBanner, getChannelInfo } from '../api/user';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { UploadFilled, Close, Picture, Check, Loading, CopyDocument, List, VideoPlay } from '@element-plus/icons-vue';
@@ -212,6 +254,7 @@ const isPublishing = ref(false); // 独立发布状态
 
 const fileInput = ref(null);
 const coverInput = ref(null);
+const subtitleInput = ref(null);
 const cropperRef = ref(null);
 
 const videoId = ref(null);
@@ -222,6 +265,12 @@ const customCoverUrl = ref('');
 const isCustomCoverSelected = ref(false);
 const tagInput = ref('');
 
+// End Screen logic
+const endScreenVisible = ref(false);
+const myVideos = ref([]);
+const loadingMyVideos = ref(false);
+const tempSelectedIds = ref([]);
+
 const form = reactive({
   title: '',
   description: '',
@@ -229,7 +278,9 @@ const form = reactive({
   tags: [],
   playlist: '',
   cover_url: '', 
-  visibility: 'public'
+  visibility: 'public',
+  subtitle_url: '',
+  end_screen_video_ids: '' // "1,2"
 });
 
 const categories = ["宠物和动物", "电影和动画", "公益和社会活动", "教育", "科学和技术", "旅游和活动", "汽车和其他交通工具", "人物和博客", "体育", "喜剧", "新闻和政治", "音乐", "游戏", "娱乐", "DIY和生活百科"];
@@ -252,6 +303,8 @@ onMounted(async () => {
         form.category = v.category || '人物和博客';
         form.visibility = v.visibility;
         form.cover_url = v.cover_url;
+        form.subtitle_url = v.subtitle_url || '';
+        form.end_screen_video_ids = v.end_screen_video_ids || '';
         customCoverUrl.value = v.cover_url;
         isCustomCoverSelected.value = true;
         serverVideoUrl.value = v.url;
@@ -267,7 +320,64 @@ onMounted(async () => {
   }
 });
 
+const openEndScreenModal = async () => {
+  endScreenVisible.value = true;
+  loadingMyVideos.value = true;
+  tempSelectedIds.value = form.end_screen_video_ids ? form.end_screen_video_ids.split(',').map(Number) : [];
+  
+  try {
+     const res = await getCreatorStats(userStore.userInfo.id);
+     if (res.data.code === 200) {
+        // Filter out current video
+        myVideos.value = res.data.data.all_videos.filter(v => String(v.id) !== String(videoId.value));
+     }
+  } catch(e) {
+     console.error(e);
+     ElMessage.error("获取视频列表失败");
+  } finally {
+     loadingMyVideos.value = false;
+  }
+};
+
+const toggleVideoSelection = (vid) => {
+   const idx = tempSelectedIds.value.indexOf(vid);
+   if (idx > -1) {
+      tempSelectedIds.value.splice(idx, 1);
+   } else {
+      if (tempSelectedIds.value.length >= 2) {
+         ElMessage.warning("最多选择2个视频");
+         return;
+      }
+      tempSelectedIds.value.push(vid);
+   }
+};
+
+const confirmEndScreen = () => {
+   form.end_screen_video_ids = tempSelectedIds.value.join(',');
+   endScreenVisible.value = false;
+};
+
 const triggerFile = () => fileInput.value.click();
+const triggerSubtitle = () => subtitleInput.value.click();
+
+const handleSubtitleSelected = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await uploadSubtitle(formData);
+    if (res.data.code === 200) {
+      form.subtitle_url = res.data.url;
+      ElMessage.success('字幕上传成功');
+    } else {
+      ElMessage.error(res.data.msg);
+    }
+  } catch (error) {
+    ElMessage.error('上传失败');
+  }
+  e.target.value = '';
+};
 
 // 【核心修改】分片上传逻辑
 const handleFileSelected = async (e) => {
@@ -360,6 +470,7 @@ const submitPublish = async (actionType) => {
       tags: form.tags.join(','),
       cover_url: form.cover_url,
       visibility: form.visibility,
+      subtitle_url: form.subtitle_url, // Add this
       user_id: userStore.userInfo.id,
       action: actionType // 传入 'draft' 或 'publish'
     };

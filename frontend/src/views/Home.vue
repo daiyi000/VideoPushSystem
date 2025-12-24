@@ -15,10 +15,22 @@
            <el-icon><Filter /></el-icon> 搜索结果：{{ videoList.length }} 条相关视频
         </div>
         <div class="video-list-wrapper search-mode">
-          <div v-for="video in videoList" :key="video.id" class="video-card list-card hover-effect" @click="goToDetail(video.id)">
+          <div v-for="video in videoList" :key="video.id" 
+               class="video-card list-card hover-effect" 
+               @click="goToDetail(video.id)"
+               @mouseenter="handleMouseEnter(video, 'start')"
+               @mouseleave="handleMouseLeave"
+          >
             <div class="thumbnail-wrapper">
-              <img :src="video.cover_url" class="thumbnail" />
-              <span class="duration">{{ formatTime(video.duration) }}</span>
+              <video 
+                v-if="hoverVideoId === video.id"
+                :id="'preview-' + video.id"
+                class="preview-video"
+                :src="video.url"
+                muted autoplay loop
+              ></video>
+              <img v-else :src="video.cover_url" class="thumbnail" />
+              <span class="duration" v-if="hoverVideoId !== video.id">{{ formatTime(video.duration) }}</span>
             </div>
             <div class="video-info">
               <img :src="video.uploader_avatar" class="uploader-avatar" />
@@ -53,6 +65,7 @@
                <div class="thumbnail-wrapper">
                   <video 
                     v-if="hoverVideoId === video.id"
+                    :id="'preview-' + video.id"
                     class="preview-video"
                     :src="video.url"
                     muted autoplay loop
@@ -101,6 +114,7 @@
                <div class="thumbnail-wrapper">
                   <video 
                     v-if="hoverVideoId === video.id"
+                    :id="'preview-' + video.id"
                     class="preview-video"
                     :src="video.url"
                     muted autoplay loop
@@ -138,6 +152,7 @@
                   <div class="thumbnail-wrapper vertical">
                     <video 
                       v-if="hoverVideoId === video.id"
+                      :id="'preview-' + video.id"
                       class="preview-video"
                       :src="video.url"
                       muted autoplay loop
@@ -169,6 +184,7 @@
                 <div class="thumbnail-wrapper">
                    <video 
                      v-if="hoverVideoId === video.id" 
+                     :id="'preview-' + video.id"
                      class="preview-video" 
                      :src="video.url" 
                      muted autoplay loop
@@ -203,6 +219,7 @@
                   <div class="thumbnail-wrapper">
                     <video 
                       v-if="hoverVideoId === video.id"
+                      :id="'preview-' + video.id"
                       class="preview-video"
                       :src="video.url"
                       muted autoplay
@@ -349,7 +366,7 @@ const goToShorts = (id) => { router.push(`/shorts/${id}`); }
 const handleMouseEnter = async (video, mode) => {
   hoverVideoId.value = video.id;
   await nextTick();
-  const videoEl = document.querySelector('.preview-video');
+  const videoEl = document.getElementById(`preview-${video.id}`);
   if (videoEl) {
     if (mode === 'continue' && video.progress) {
       videoEl.currentTime = video.progress;

@@ -65,6 +65,12 @@ class Video(db.Model):
     status = db.Column(db.Integer, default=0) 
     visibility = db.Column(db.String(20), default='public')
     
+    # 【新增】字幕文件链接
+    subtitle_url = db.Column(db.String(256))
+    
+    # 【新增】片尾推荐视频ID列表 (逗号分隔 "1,2,3")
+    end_screen_video_ids = db.Column(db.String(256))
+
     upload_time = db.Column(db.DateTime, default=datetime.utcnow)
     uploader_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     
@@ -80,6 +86,8 @@ class Video(db.Model):
             'visibility': self.visibility, 
             'duration': self.duration,
             'is_short': self.is_short, # 返回标记
+            'subtitle_url': self.subtitle_url, # 返回字幕链接
+            'end_screen_video_ids': self.end_screen_video_ids, # 返回片尾推荐ID
             'upload_time': self.upload_time.strftime('%Y-%m-%d %H:%M'),
             'uploader_id': self.uploader_id, 'uploader_name': author_name, 'uploader_avatar': author_avatar,
             'uploader_verification_type': self.uploader.verification_type if self.uploader else 0,

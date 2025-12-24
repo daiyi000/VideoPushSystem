@@ -92,3 +92,28 @@ export function updateVideo(data) {
   // data: { id, user_id, title, description, visibility }
   return request({ url: '/video/update', method: 'post', data });
 }
+
+export function uploadSubtitle(formData) {
+  return request({
+    url: '/video/upload_subtitle',
+    method: 'post',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+}
+
+export function getVideosByIds(idsStr) {
+  return request({
+    url: '/video/batch_info',
+    method: 'post',
+    data: { ids: idsStr }
+  });
+}
+
+export function getCreatorStats(userId) {
+  return request({
+    url: '/video/creator/stats',
+    method: 'get',
+    params: { user_id: userId }
+  });
+}
