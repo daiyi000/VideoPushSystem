@@ -39,9 +39,13 @@
           </el-button>
         </el-form-item>
         
-        <div style="text-align: center;">
+        <div style="text-align: center; display: flex; justify-content: space-between; align-items: center; padding: 0 10px;">
           <el-button link type="primary" @click="toggleMode">
             {{ isRegister ? '已有账号？去登录' : '没有账号？去注册' }}
+          </el-button>
+          
+          <el-button v-if="!isRegister" link type="warning" @click="$router.push('/forgot-password')">
+            忘记密码？
           </el-button>
         </div>
       </el-form>

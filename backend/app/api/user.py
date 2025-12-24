@@ -23,7 +23,7 @@ def upload_avatar():
         save_dir = os.path.join(current_app.root_path, 'static/avatars')
         if not os.path.exists(save_dir): os.makedirs(save_dir)
         file.save(os.path.join(save_dir, new_filename))
-        file_url = f"http://localhost:5000/static/avatars/{new_filename}"
+        file_url = f"/static/avatars/{new_filename}"
         return jsonify({'code': 200, 'msg': '上传成功', 'url': file_url})
     return jsonify({'code': 400, 'msg': '格式不支持'})
 
@@ -39,7 +39,7 @@ def upload_banner():
         save_dir = os.path.join(current_app.root_path, 'static/avatars') 
         if not os.path.exists(save_dir): os.makedirs(save_dir)
         file.save(os.path.join(save_dir, new_filename))
-        file_url = f"http://localhost:5000/static/avatars/{new_filename}"
+        file_url = f"/static/avatars/{new_filename}"
         return jsonify({'code': 200, 'msg': '上传成功', 'url': file_url})
     return jsonify({'code': 400, 'msg': '格式不支持'})
 

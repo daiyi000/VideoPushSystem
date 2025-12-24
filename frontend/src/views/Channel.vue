@@ -432,11 +432,38 @@ const onFileSelect = (e, type) => {
 };
 const doUploadAvatar = async (blob, done) => {
   const formData = new FormData(); formData.append('file', blob, 'avatar.jpg');
-  try { const res = await uploadAvatar(formData); if (res.data.code === 200) { author.value.avatar = res.data.url; userStore.setLoginState(userStore.token, { ...userStore.userInfo, avatar: res.data.url }); ElMessage.success('头像更新成功'); done(); } else { ElMessage.error(res.data.msg); } } catch (e) { ElMessage.error('上传失败'); }
+  try { 
+    const res = await uploadAvatar(formData); 
+    if (res.data.code === 200) { 
+      // 1. 上传成功，保存到数据库
+      await updateProfile({ user_id: userStore.userInfo.id, avatar: res.data.url });
+      
+      // 2. 更新本地显示
+      author.value.avatar = res.data.url; 
+      userStore.setLoginState(userStore.token, { ...userStore.userInfo, avatar: res.data.url }); 
+      ElMessage.success('头像更新成功'); 
+      done(); 
+    } else { 
+      ElMessage.error(res.data.msg); 
+    } 
+  } catch (e) { ElMessage.error('上传失败'); }
 };
 const doUploadBanner = async (blob, done) => {
   const formData = new FormData(); formData.append('file', blob, 'banner.jpg');
-  try { const res = await uploadBanner(formData); if (res.data.code === 200) { author.value.banner = res.data.url; ElMessage.success('横幅更新成功'); done(); } } catch (e) { ElMessage.error('上传失败'); }
+  try { 
+    const res = await uploadBanner(formData); 
+    if (res.data.code === 200) { 
+      // 1. 保存到数据库
+      await updateProfile({ user_id: userStore.userInfo.id, banner: res.data.url });
+      
+      // 2. 更新本地显示
+      author.value.banner = res.data.url; 
+      // 同时更新Store，保持数据一致
+      userStore.setLoginState(userStore.token, { ...userStore.userInfo, banner: res.data.url });
+      ElMessage.success('横幅更新成功'); 
+      done(); 
+    } 
+  } catch (e) { ElMessage.error('上传失败'); }
 };
 
 watch(

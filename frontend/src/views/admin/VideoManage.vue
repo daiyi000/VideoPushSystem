@@ -1,64 +1,76 @@
 <template>
   <el-card>
-    <div class="header">
-      <h2>视频内容管理</h2>
-      <el-select v-model="filterStatus" placeholder="状态筛选" @change="loadData">
-        <el-option label="全部" value="" />
-        <el-option label="待审核" value="0" />
-        <el-option label="已发布" value="1" />
-        <el-option label="已下架" value="2" />
-      </el-select>
-    </div>
+    <template #header>
+      <div class="card-header">
+        <span>视频内容管理</span>
+        <div class="header-actions">
+          <el-select 
+            v-model="filterStatus" 
+            placeholder="状态筛选" 
+            @change="loadData" 
+            size="small" 
+            style="width: 120px"
+          >
+            <el-option label="全部状态" value="" />
+            <el-option label="待审核" value="0" />
+            <el-option label="已发布" value="1" />
+            <el-option label="已下架" value="2" />
+          </el-select>
+        </div>
+      </div>
+    </template>
 
     <el-table :data="tableData" style="width: 100%">
       <el-table-column prop="id" label="ID" width="60" />
-      <el-table-column label="封面" width="120">
+      <el-table-column label="封面" width="100">
         <template #default="scope">
-          <img :src="scope.row.cover_url" style="width: 100px; height: 60px; object-fit: cover; border-radius: 4px;">
+          <div class="video-cover-wrapper">
+            <img :src="scope.row.cover_url" class="video-cover">
+          </div>
         </template>
       </el-table-column>
-      <el-table-column prop="title" label="标题" show-overflow-tooltip />
+      <el-table-column prop="title" label="标题" show-overflow-tooltip min-width="200" />
       <el-table-column prop="category" label="分类" width="100" />
       <el-table-column label="状态" width="100">
         <template #default="scope">
-          <el-tag v-if="scope.row.status===0" type="warning">待审核</el-tag>
-          <el-tag v-else-if="scope.row.status===1" type="success">正常</el-tag>
-          <el-tag v-else type="danger">已下架</el-tag>
+          <el-tag v-if="scope.row.status===0" type="warning" effect="plain" round>待审核</el-tag>
+          <el-tag v-else-if="scope.row.status===1" type="success" effect="plain" round>正常</el-tag>
+          <el-tag v-else type="danger" effect="plain" round>已下架</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="280">
+      <el-table-column label="操作" width="200" align="right">
         <template #default="scope">
-          
-          <!-- 1. 审核按钮 (待审核 或 已下架 显示去审核) -->
-          <el-button 
-            v-if="scope.row.status === 0 || scope.row.status === 2" 
-            size="small" 
-            type="primary" 
-            @click="goToAudit(scope.row.id)"
-          >
-            去审核
-          </el-button>
+          <div class="action-links">
+            <!-- 1. 审核 -->
+            <el-button 
+              v-if="scope.row.status === 0 || scope.row.status === 2" 
+              link type="primary" 
+              @click="goToAudit(scope.row.id)"
+            >
+              审核
+            </el-button>
 
-          <!-- 2. 下架按钮 (仅正常状态显示) -->
-          <el-button 
-            v-if="scope.row.status === 1" 
-            size="small" 
-            type="warning" 
-            @click="handleAudit(scope.row, 2)"
-          >
-            下架
-          </el-button>
-          
-          <el-button size="small" type="danger" @click="handleDelete(scope.row)">删除</el-button>
-          
-          <!-- 4. 预览 (仅已发布状态显示) -->
-          <el-button 
-            v-if="scope.row.status === 1"
-            size="small" 
-            @click="openPreview(scope.row)"
-          >
-            预览
-          </el-button>
+            <!-- 2. 下架 -->
+            <el-button 
+              v-if="scope.row.status === 1" 
+              link type="warning" 
+              @click="handleAudit(scope.row, 2)"
+            >
+              下架
+            </el-button>
+            
+            <!-- 3. 预览 -->
+            <el-button 
+              v-if="scope.row.status === 1"
+              link type="primary"
+              @click="openPreview(scope.row)"
+            >
+              预览
+            </el-button>
+
+            <!-- 4. 删�� -->
+            <el-button link type="danger" @click="handleDelete(scope.row)">删除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -110,5 +122,29 @@ onMounted(() => loadData());
 </script>
 
 <style scoped>
-.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.video-cover-wrapper {
+  width: 80px;
+  height: 45px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #eee;
+}
+
+.video-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.action-links .el-button {
+  margin-left: 0;
+  margin-right: 12px;
+  font-size: 13px;
+}
 </style>

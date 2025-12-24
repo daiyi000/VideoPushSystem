@@ -4,7 +4,7 @@ import axios from 'axios';
 const service = axios.create({
   // 确保这里的地址和你的后端地址一致
   baseURL: '/api', 
-  timeout: 5000,
+  timeout: 600000,
   headers: {
     'Content-Type': 'application/json',
   },

@@ -176,3 +176,24 @@ class Order(db.Model):
     # 购买的具体认证类型
     target_ver_type = db.Column(db.Integer) 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# 10. 密码重置请求
+class PasswordResetRequest(db.Model):
+    __tablename__ = 'password_reset_requests'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    email = db.Column(db.String(120), nullable=False)
+    status = db.Column(db.String(20), default='pending') # pending, sent, completed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref=db.backref('reset_requests', lazy=True))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'username': self.user.username if self.user else 'Unknown',
+            'email': self.email,
+            'status': self.status,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        }

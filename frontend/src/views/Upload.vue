@@ -192,7 +192,7 @@
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '../store/user';
-import { uploadVideoFile, publishVideo, updateVideo, getVideoDetail } from '../api/video';
+import { uploadVideoFile, uploadVideoChunk, mergeVideoChunks, publishVideo, updateVideo, getVideoDetail } from '../api/video';
 import { uploadBanner, getChannelInfo } from '../api/user';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { UploadFilled, Close, Picture, Check, Loading, CopyDocument, List, VideoPlay } from '@element-plus/icons-vue';
@@ -268,30 +268,69 @@ onMounted(async () => {
 });
 
 const triggerFile = () => fileInput.value.click();
+
+// 【核心修改】分片上传逻辑
 const handleFileSelected = async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+
   fileName.value = file.name;
   form.title = file.name.replace(/\.[^/.]+$/, "");
   isDialogVisible.value = true;
   currentStep.value = 0;
   uploadPercentage.value = 0;
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('uploader_id', userStore.userInfo.id);
-  let progressTimer = setInterval(() => { if (uploadPercentage.value < 90) uploadPercentage.value += 10; }, 200);
+
+  // 生成唯一 upload_id (时间戳 + 随机数)
+  const uploadId = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  
+  const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+  
   try {
-    const res = await uploadVideoFile(formData);
-    clearInterval(progressTimer);
-    uploadPercentage.value = 100;
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(file.size, start + CHUNK_SIZE);
+      const chunk = file.slice(start, end);
+
+      const formData = new FormData();
+      formData.append('file', chunk);
+      formData.append('chunk_index', i);
+      formData.append('upload_id', uploadId);
+
+      await uploadVideoChunk(formData);
+      
+      // 更新进度
+      uploadPercentage.value = Math.floor(((i + 1) / totalChunks) * 90);
+    }
+
+    // 所有分片上传完成，请求合并
+    const mergeData = {
+      upload_id: uploadId,
+      filename: file.name,
+      total_chunks: totalChunks,
+      uploader_id: userStore.userInfo.id
+    };
+
+    const res = await mergeVideoChunks(mergeData);
     if (res.data.code === 200) {
+      uploadPercentage.value = 100;
       const d = res.data.data;
       videoId.value = d.id;
       serverVideoUrl.value = d.url;
       autoCovers.value = d.auto_covers || [];
       if (autoCovers.value.length > 0) form.cover_url = autoCovers.value[0];
+      ElMessage.success('视频上传处理完成');
+    } else {
+      throw new Error(res.data.msg);
     }
-  } catch (error) { clearInterval(progressTimer); ElMessage.error('上传失败'); isDialogVisible.value = false; }
+
+  } catch (error) {
+    console.error(error);
+    ElMessage.error(error.message || '上传失败，请重试');
+    isDialogVisible.value = false;
+  } finally {
+    e.target.value = ''; // Reset input
+  }
 };
 
 const selectAutoCover = (url) => { form.cover_url = url; isCustomCoverSelected.value = false; };

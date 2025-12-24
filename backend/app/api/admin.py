@@ -1,10 +1,55 @@
-import os
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from sqlalchemy import func
 from flasgger import swag_from
-from ..models import User, Video, ActionLog, db, Comment, Danmaku, playlist_video
+from ..models import User, Video, ActionLog, db, Comment, Danmaku, playlist_video, PasswordResetRequest
+from .. import mail
+from flask_mail import Message
+import jwt
+import datetime
+import os
 
 admin_bp = Blueprint('admin', __name__)
+
+@admin_bp.route('/reset_requests', methods=['GET'])
+def get_reset_requests():
+    reqs = PasswordResetRequest.query.order_by(PasswordResetRequest.created_at.desc()).all()
+    return jsonify({'code': 200, 'data': [r.to_dict() for r in reqs]})
+
+@admin_bp.route('/send_reset_email', methods=['POST'])
+def send_reset_email():
+    data = request.get_json()
+    req_id = data.get('id')
+    
+    req = PasswordResetRequest.query.get(req_id)
+    if not req:
+        return jsonify({'code': 404, 'msg': '请求不存在'}), 404
+        
+    user = User.query.get(req.user_id)
+    if not user:
+        return jsonify({'code': 404, 'msg': '用户不存在'}), 404
+
+    # 生成 1 小时有效的 Token
+    payload = {
+        'reset_user_id': user.id,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+    }
+    token = jwt.encode(payload, current_app.config['SECRET_KEY'], algorithm='HS256')
+    
+    # 构造链接
+    domain = os.getenv('SITE_DOMAIN', 'http://localhost:5173') # 前端地址
+    reset_link = f"{domain}/reset-password?token={token}"
+    
+    try:
+        msg = Message("VideoHub 密码重置", recipients=[req.email])
+        msg.body = f"亲爱的 {user.username}：\n\n管理员已批准您的重置请求。请点击以下链接重置密码：\n{reset_link}\n\n该链接1小时内有效。"
+        mail.send(msg)
+        
+        req.status = 'sent'
+        db.session.commit()
+        return jsonify({'code': 200, 'msg': '邮件已发送'})
+    except Exception as e:
+        print(e)
+        return jsonify({'code': 500, 'msg': '邮件发送失败'}), 500
 
 @admin_bp.route('/stats', methods=['GET'])
 @swag_from('../docs/admin/stats.yml') # <--- 修改

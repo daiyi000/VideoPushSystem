@@ -59,6 +59,25 @@ export function uploadVideoFile(formData) {
   });
 }
 
+// 分片上传
+export function uploadVideoChunk(formData) {
+  return request({
+    url: '/video/upload_chunk',
+    method: 'post',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+}
+
+// 合并分片
+export function mergeVideoChunks(data) {
+  return request({
+    url: '/video/merge_chunks',
+    method: 'post',
+    data
+  });
+}
+
 // 2. 发布视频信息 (第二阶段)
 export function publishVideo(data) {
   // data: { id, title, description, category, tags, cover_url }

@@ -11,3 +11,7 @@ export function deleteVideoAdmin(id) { return request.post('/admin/video/delete'
 // 用户管理
 export function getAdminUsers(q) { return request.get('/admin/users', { params: { q } }); }
 export function banUser(id) { return request.post('/admin/user/ban', { id }); }
+
+// 重置请求管理
+export function getResetRequests() { return request.get('/admin/reset_requests'); }
+export function sendResetEmail(id) { return request.post('/admin/send_reset_email', { id }); }

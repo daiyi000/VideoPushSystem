@@ -79,15 +79,17 @@ pnpm-debug.log*
 # ==========================
 # 4. 项目特定上传目录
 # ==========================
-# 忽略用户上传的具体文件
+# 忽略用户上传的具体文件和临时分片
 backend/app/static/uploads/*
 backend/app/static/covers/*
 backend/app/static/avatars/*
+backend/app/static/temp/*
 
-# 但保留文件夹本身 (git 默认不追踪空文件夹，需要保留一个 .gitkeep)
+# 但保留文件夹本身
 !backend/app/static/uploads/.gitkeep
 !backend/app/static/covers/.gitkeep
 !backend/app/static/avatars/.gitkeep
+!backend/app/static/temp/.gitkeep
 
 # ==========================
 # 5. IDE 与 操作系统文件

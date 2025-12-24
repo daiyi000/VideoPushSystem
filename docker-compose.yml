@@ -34,7 +34,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       SITE_DOMAIN: ${SITE_DOMAIN}
     volumes:
-      - ./backend/static:/app/static
+      - ./backend/app/static:/app/app/static
     networks:
       - bishe-net
 

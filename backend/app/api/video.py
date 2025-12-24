@@ -3,6 +3,7 @@ import time
 import cv2
 import random
 import jwt
+import shutil
 from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
@@ -44,13 +45,112 @@ def generate_auto_thumbnails(video_path, output_folder, file_prefix):
                 thumb_filename = f"{file_prefix}_auto_{idx}.jpg"
                 save_path = os.path.join(output_folder, thumb_filename)
                 cv2.imwrite(save_path, frame)
-                url = f"http://localhost:5000/static/covers/{thumb_filename}"
+                url = f"/static/covers/{thumb_filename}"
                 thumbnails.append(url)
         cap.release()
     except Exception as e:
         print(f"视频处理失败: {e}")
     
     return thumbnails, duration, is_short
+
+@video_bp.route('/upload_chunk', methods=['POST'])
+def upload_chunk():
+    """
+    分片上传接口
+    """
+    if 'file' not in request.files: return jsonify({'code': 400, 'msg': '无文件'})
+    file = request.files['file']
+    chunk_index = request.form.get('chunk_index')
+    upload_id = request.form.get('upload_id') # 前端生成的唯一ID (如 timestamp_hash)
+
+    if not chunk_index or not upload_id:
+        return jsonify({'code': 400, 'msg': '参数缺失'})
+
+    # 临时存储路径: static/temp/{upload_id}/{chunk_index}
+    static_folder = os.path.join(os.getcwd(), 'app/static')
+    temp_dir = os.path.join(static_folder, 'temp', upload_id)
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir, exist_ok=True)
+    
+    save_path = os.path.join(temp_dir, chunk_index)
+    file.save(save_path)
+    return jsonify({'code': 200, 'msg': 'Chunk uploaded'})
+
+@video_bp.route('/merge_chunks', methods=['POST'])
+def merge_chunks():
+    """
+    合并分片接口
+    """
+    data = request.get_json()
+    upload_id = data.get('upload_id')
+    filename = data.get('filename')
+    total_chunks = data.get('total_chunks')
+    uploader_id = data.get('uploader_id')
+
+    if not upload_id or not filename or not total_chunks:
+        return jsonify({'code': 400, 'msg': '参数缺失'})
+
+    static_folder = os.path.join(os.getcwd(), 'app/static')
+    temp_dir = os.path.join(static_folder, 'temp', upload_id)
+    upload_folder = os.path.join(static_folder, 'uploads')
+    cover_folder = os.path.join(static_folder, 'covers')
+    os.makedirs(upload_folder, exist_ok=True)
+    os.makedirs(cover_folder, exist_ok=True)
+
+    # 1. 检查所有分片是否齐全
+    for i in range(int(total_chunks)):
+        chunk_path = os.path.join(temp_dir, str(i))
+        if not os.path.exists(chunk_path):
+             return jsonify({'code': 400, 'msg': f'缺少分片 {i}'})
+
+    # 2. 合并文件
+    timestamp = int(time.time())
+    safe_name = secure_filename(filename)
+    new_video_name = f"{timestamp}_{safe_name}"
+    final_path = os.path.join(upload_folder, new_video_name)
+
+    with open(final_path, 'wb') as outfile:
+        for i in range(int(total_chunks)):
+            chunk_path = os.path.join(temp_dir, str(i))
+            with open(chunk_path, 'rb') as infile:
+                outfile.write(infile.read())
+    
+    # 3. 删除临时文件
+    try:
+        shutil.rmtree(temp_dir)
+    except:
+        pass
+
+    # 4. 后续处理 (生成缩略图，创建DB记录)
+    video_url = f"/static/uploads/{new_video_name}"
+    auto_covers, duration, is_short = generate_auto_thumbnails(final_path, cover_folder, f"{timestamp}_{safe_name}")
+    default_cover = auto_covers[0] if auto_covers else "https://via.placeholder.com/300x200"
+
+    video = Video(
+        title=filename, # 初始标题用原文件名
+        description="",
+        url=video_url,
+        cover_url=default_cover,
+        uploader_id=uploader_id,
+        duration=duration,
+        is_short=is_short, 
+        status=-1, 
+        visibility='private' 
+    )
+    db.session.add(video)
+    db.session.commit()
+
+    return jsonify({
+        'code': 200, 
+        'msg': '上传合并完成', 
+        'data': {
+            'id': video.id,
+            'url': video.url,
+            'title': video.title,
+            'auto_covers': auto_covers,
+            'is_short': is_short
+        }
+    })
 
 @video_bp.route('/upload_file', methods=['POST'])
 @swag_from('../docs/video/upload.yml') # <--- 修改
@@ -72,7 +172,7 @@ def upload_video_file():
         video_path = os.path.join(upload_folder, new_video_name)
         file.save(video_path)
         
-        base_url = "http://localhost:5000"
+        base_url = ""
         video_url = f"{base_url}/static/uploads/{new_video_name}"
         
         auto_covers, duration, is_short = generate_auto_thumbnails(video_path, cover_folder, f"{timestamp}_{filename}")

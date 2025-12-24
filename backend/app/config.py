@@ -21,12 +21,13 @@ class Config:
     UPLOAD_FOLDER = os.path.join(os.getcwd(), 'app/static/uploads')
 
 
-    MAIL_SERVER = 'smtp.qq.com' # QQ邮箱的SMTP服务器
-    MAIL_PORT = 465             # SSL 端口
-    MAIL_USE_SSL = True
-    MAIL_USERNAME = '2954377102@qq.com'  # 邮箱账号
-    MAIL_PASSWORD = 'cyhkabcuqxqjdcje'     # 邮箱授权码
-    MAIL_DEFAULT_SENDER = '2954377102@qq.com' # 发送者地址
+    # 邮件配置
+    MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.qq.com')
+    MAIL_PORT = int(os.getenv('MAIL_PORT', 465))
+    MAIL_USE_SSL = os.getenv('MAIL_USE_SSL', 'True') == 'True'
+    MAIL_USERNAME = os.getenv('MAIL_USERNAME')
+    MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
+    MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER')
 
     # 支付宝沙盒配置
     ALIPAY_APPID = os.getenv("ALIPAY_APPID")

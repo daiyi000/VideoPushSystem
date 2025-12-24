@@ -32,9 +32,14 @@ import Shorts from '../views/Shorts.vue';
 
 import PayView from '../views/PayView.vue';
 import PayResult from '../views/PayResult.vue';
+import ForgotPassword from '../views/ForgotPassword.vue';
+import ResetPassword from '../views/ResetPassword.vue';
+
 const routes = [
   // 登录页
   { path: '/login', name: 'Login', component: Login },
+  { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPassword },
+  { path: '/reset-password', name: 'ResetPassword', component: ResetPassword },
   
   // 主站路由 (使用 MainLayout)
   {
