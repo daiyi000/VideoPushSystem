@@ -1,7 +1,7 @@
 <template>
   <div class="app-layout">
     <!-- 1. 顶部导航栏 -->
-    <header class="app-header">
+    <header class="app-header" :class="{ 'mobile-search-active': isMobileSearchActive }">
       <div class="header-left">
         <el-button link @click="toggleSidebar" class="menu-btn">
           <el-icon size="24"><Menu /></el-icon>
@@ -13,8 +13,13 @@
       </div>
 
       <div class="header-center">
+        <!-- Mobile Back Button (Only visible in search mode) -->
+        <div class="mobile-back-btn" v-if="isMobileSearchActive" @click="isMobileSearchActive = false">
+            <el-icon size="24"><ArrowLeft /></el-icon>
+        </div>
+
         <div class="search-box">
-          <input v-model="keyword" placeholder="搜索" @keyup.enter="handleSearch" />
+          <input v-model="keyword" placeholder="搜索" @keyup.enter="handleSearch" ref="searchInputRef" />
           <button @click="handleSearch" title="搜索">
             <el-icon size="20" color="#333"><Search /></el-icon>
           </button>
@@ -22,7 +27,12 @@
       </div>
 
       <div class="header-right">
-        <div class="icon-btn-wrapper" @click="$router.push('/upload')" title="创建">
+        <!-- Mobile Search Toggle Icon -->
+        <div class="mobile-search-icon-btn" @click="isMobileSearchActive = true">
+            <el-icon size="24"><Search /></el-icon>
+        </div>
+
+        <div class="icon-btn-wrapper create-btn" @click="$router.push('/upload')" title="创建">
            <el-icon size="24"><VideoCamera /></el-icon>
         </div>
 
@@ -66,13 +76,13 @@
           </div>
         </el-popover>
         
-        <div v-if="!userStore.token" style="margin-left:15px">
+        <div v-if="!userStore.token" class="login-btn-container">
           <el-button type="primary" round plain @click="$router.push('/login')">
-             <el-icon style="margin-right:4px"><User /></el-icon> 登录
+             <el-icon style="margin-right:4px"><User /></el-icon> <span class="login-text">登录</span>
           </el-button>
         </div>
         
-        <el-dropdown v-else trigger="click" @command="handleCommand" style="margin-left:15px">
+        <el-dropdown v-else trigger="click" @command="handleCommand" class="user-dropdown">
           <el-avatar :size="32" :src="userStore.userInfo.avatar" style="cursor:pointer" />
           <template #dropdown>
             <el-dropdown-menu>
@@ -94,7 +104,7 @@
     </header>
 
     <div class="app-body">
-      <!-- 2. 侧边栏 -->
+      <!-- 2. 侧边栏 (手机端通过 CSS 隐藏) -->
       <aside class="app-sidebar" :class="{ 'collapsed': isCollapsed }">
         <div class="nav-section">
           <div class="nav-item" :class="{ active: $route.path === '/' }" @click="$router.push('/')">
@@ -125,15 +135,32 @@
         <router-view />
       </main>
     </div>
+
+    <!-- 4. 底部导航栏 (仅手机端显示) -->
+    <nav class="mobile-bottom-nav">
+        <div class="bot-nav-item" :class="{ active: $route.path === '/' }" @click="goHome">
+            <el-icon><HomeFilled /></el-icon>
+            <span>首页</span>
+        </div>
+        <div class="bot-nav-item" :class="{ active: $route.path.includes('/shorts') }" @click="goToShorts">
+            <el-icon><Film /></el-icon>
+            <span>Shorts</span>
+        </div>
+        <div class="bot-nav-item" :class="{ active: $route.path === '/profile' }" @click="goProfile">
+            <el-avatar v-if="userStore.token" :size="24" :src="userStore.userInfo.avatar" />
+            <el-icon v-else><User /></el-icon>
+            <span>我</span>
+        </div>
+    </nav>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '../store/user';
 import request from '../api/request';
-import { Menu, VideoPlay, Search, VideoCamera, HomeFilled, Collection, Monitor, Film, User, SwitchButton, Bell, Money } from '@element-plus/icons-vue';
+import { Menu, VideoPlay, Search, VideoCamera, HomeFilled, Collection, Monitor, Film, User, SwitchButton, Bell, Money, ArrowLeft } from '@element-plus/icons-vue';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -142,10 +169,20 @@ const keyword = ref('');
 const followingList = ref([]);
 const notificationList = ref([]);
 const unreadCount = ref(0);
+const isMobileSearchActive = ref(false);
+const searchInputRef = ref(null);
 
 const toggleSidebar = () => { isCollapsed.value = !isCollapsed.value; };
-const handleSearch = () => { if (keyword.value.trim()) { router.push(`/?q=${keyword.value}&t=${Date.now()}`); } };
+
+const handleSearch = () => { 
+  if (keyword.value.trim()) { 
+    router.push(`/?q=${keyword.value}&t=${Date.now()}`);
+    isMobileSearchActive.value = false;
+  } 
+};
+
 const goToShorts = () => { router.push('/shorts/random'); };
+
 const handleCommand = (cmd) => {
   if (cmd === 'logout') { userStore.logout(); router.push('/login'); }
   if (cmd === 'profile') router.push('/profile');
@@ -154,6 +191,7 @@ const handleCommand = (cmd) => {
   if (cmd === 'admin') router.push('/admin/dashboard');
   if (cmd === 'pay') window.location.href = 'https://pay.aeasywink.top/pay';
 };
+
 const fetchFollowing = async () => {
   if (!userStore.token) return;
   try {
@@ -190,10 +228,16 @@ const markAllRead = async () => {
    unreadCount.value = 0;
 };
 
+// Mobile Bottom Nav Actions
+const goHome = () => router.push('/');
+const goProfile = () => {
+    if(userStore.token) router.push('/profile');
+    else router.push('/login');
+};
+
 onMounted(() => { 
   fetchFollowing(); 
   fetchNotifications();
-  // Simple polling for demo
   setInterval(fetchNotifications, 30000);
 });
 </script>
@@ -210,65 +254,56 @@ onMounted(() => {
 .notif-header { padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; font-weight: bold; }
 .mark-read-btn { font-size: 12px; color: #065fd4; cursor: pointer; }
 
-/* Header - 透明毛玻璃核心 */
+/* Header */
 .app-header {
   height: 56px; 
-  /* 90% 不透明的白色，确保能看到后面滚动的视频 */
   background: rgba(255, 255, 255, 0.9);
-  /* 强力模糊效果 */
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  
   display: flex; justify-content: space-between; align-items: center; 
   padding: 0 16px; 
   position: fixed; 
   top: 0; left: 0; right: 0; 
   z-index: 2020;
-  /* 只有极淡的边框，增强融合感 */
   border-bottom: 1px solid rgba(0,0,0,0.05); 
 }
 
-/* 布局调整：让内容能滚到 header 后面 */
 .app-body { 
   display: flex; 
-  margin-top: 0; /* 【关键】取消之前的 56px 边距 */
-  height: 100vh; /* 占满全屏 */
+  margin-top: 0; 
+  height: 100vh; 
   width: 100%;
 }
 
-/* Sidebar */
 .app-sidebar { 
   width: 240px; 
   background: #fff; 
   overflow-y: auto; 
   padding: 12px; 
-  padding-top: 68px; /* 【关键】顶部留出空间，因为 header 盖在上面 */
+  padding-top: 68px; 
   transition: width 0.2s; 
   display: flex; flex-direction: column; 
   scrollbar-width: thin;
-  z-index: 1010; /* 比 header 低，但在内容之上 */
+  z-index: 1010; 
   border-right: 1px solid rgba(0,0,0,0.05);
 }
 .app-sidebar.collapsed { width: 72px; padding: 12px 4px; padding-top: 68px; }
 
-/* Content */
 .app-content { 
   flex: 1; 
-  overflow-y: auto; /* 允许内部滚动 */
+  overflow-y: auto; 
   background: #fff; 
-  padding: 0; /* 这里的 padding 交给子页面控制，或者统一这里设 */
-  padding-top: 56px; /* 【关键】内容初始位置下移，避免被 header 挡住 */
-  /* 当你滚动 .app-content 时，内容会往上走，header 是 fixed 的，所以内容会穿过 header */
+  padding: 0; 
+  padding-top: 56px; 
 }
 
-/* 其他样式保持不变 */
 .header-left { display: flex; align-items: center; gap: 16px; }
 .logo { display: flex; align-items: center; font-weight: bold; font-size: 18px; cursor: pointer; letter-spacing: -0.5px; color: #212121; font-family: "YouTube Sans", Roboto, sans-serif; }
 .menu-btn { color: #030303; padding: 8px; border-radius: 50%; }
 .menu-btn:hover { background: #e5e5e5; }
 .header-center { flex: 1; display: flex; justify-content: center; max-width: 720px; margin-left: 40px; }
 .search-box { display: flex; width: 100%; align-items: center; }
-.search-box input { flex: 1; height: 40px; padding: 0 16px; font-size: 16px; color: hsl(0,0%,6.7%); background-color: rgba(255,255,255,0.8); /* 搜索框也微透 */ border: 1px solid #ccc; border-right: none; border-radius: 20px 0 0 20px; outline: none; box-shadow: inset 0 1px 2px #eee; }
+.search-box input { flex: 1; height: 40px; padding: 0 16px; font-size: 16px; color: hsl(0,0%,6.7%); background-color: rgba(255,255,255,0.8); border: 1px solid #ccc; border-right: none; border-radius: 20px 0 0 20px; outline: none; box-shadow: inset 0 1px 2px #eee; }
 .search-box input:focus { border-color: #1c62b9; box-shadow: inset 0 1px 2px #eee; }
 .search-box button { width: 64px; height: 40px; border: 1px solid #d3d3d3; background-color: #f8f8f8; border-radius: 0 20px 20px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s; }
 .search-box button:hover { background-color: #f0f0f0; border-color: #c6c6c6; box-shadow: 0 1px 0 rgba(0,0,0,0.1); }
@@ -289,5 +324,60 @@ onMounted(() => {
 .section-title { padding: 6px 12px; font-size: 16px; font-weight: bold; margin-top: 6px; color: #0f0f0f; }
 .user-item { gap: 12px; }
 .username { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.empty-tip, .login-tip { padding: 12px; font-size: 13px; color: #606060; line-height: 1.5; }
+
+/* Mobile Adaptation CSS */
+.mobile-search-icon-btn { display: none; }
+.mobile-bottom-nav { display: none; }
+.mobile-back-btn { display: none; }
+
+@media screen and (max-width: 768px) {
+  .menu-btn { display: none !important; }
+  .app-sidebar { display: none !important; }
+  .login-text { display: none; }
+  .create-btn { display: none; }
+  
+  .app-content { padding-bottom: 60px; } /* Space for bottom nav */
+
+  .mobile-search-icon-btn { display: flex; width: 40px; height: 40px; align-items: center; justify-content: center; }
+  .header-center { margin-left: 0; flex: none; }
+  .search-box { display: none; }
+
+  /* Expanded Search State */
+  .app-header.mobile-search-active .header-left,
+  .app-header.mobile-search-active .header-right,
+  .app-header.mobile-search-active .mobile-search-icon-btn {
+    display: none;
+  }
+  .app-header.mobile-search-active .header-center {
+    display: flex; flex: 1; margin: 0; align-items: center;
+  }
+  .app-header.mobile-search-active .search-box {
+    display: flex; width: 100%;
+  }
+  .app-header.mobile-search-active .mobile-back-btn {
+    display: flex; align-items: center; justify-content: center; margin-right: 10px;
+  }
+  .app-header.mobile-search-active .search-box input {
+    border-radius: 20px; border-right: 1px solid #ccc;
+  }
+  .app-header.mobile-search-active .search-box button {
+    background: transparent; border: none; margin-left: -45px; width: 45px;
+  }
+
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 56px; background: #fff;
+    border-top: 1px solid #e5e5e5;
+    z-index: 2030;
+    justify-content: space-around;
+    align-items: center;
+  }
+  .bot-nav-item {
+    display: flex; flex-direction: column; align-items: center;
+    color: #606060; font-size: 10px; flex: 1;
+  }
+  .bot-nav-item.active { color: #0f0f0f; font-weight: bold; }
+  .bot-nav-item .el-icon { font-size: 24px; margin-bottom: 2px; }
+}
 </style>

@@ -485,6 +485,13 @@ onBeforeUnmount(() => {
 .video-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; overflow: hidden; border-radius: 12px; }
 .real-video { width: 100%; height: 100%; }
 
+/* Mobile Adaptation for Detail Page */
+@media screen and (max-width: 992px) {
+  .detail-container { padding: 0 10px; }
+  .el-col { width: 100% !important; flex: 0 0 100%; max-width: 100%; }
+  .sidebar-content { margin-top: 20px; }
+}
+
 .info-section { padding: 20px 0; }
 .title { font-size: 20px; font-weight: 700; margin: 0 0 10px 0; line-height: 28px; color: #0f0f0f; }
 .action-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }

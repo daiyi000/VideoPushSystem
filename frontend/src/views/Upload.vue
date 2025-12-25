@@ -393,7 +393,7 @@ const handleFileSelected = async (e) => {
   // 生成唯一 upload_id (时间戳 + 随机数)
   const uploadId = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   
-  const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB per chunk
+  const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
   
   try {
@@ -536,12 +536,18 @@ const handleClose = () => {
 
 <style scoped>
 /* 样式与之前一致 */
-.upload-page { display: flex; justify-content: center; align-items: center; height: calc(100vh - 60px); background: #f9f9f9; }
+.upload-page { display: flex; justify-content: center; align-items: center; height: calc(100vh - 60px); background: #f9f9f9; padding: 10px; }
 .upload-trigger-area { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
-.upload-card { width: 800px; height: 500px; background: #fff; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center; }
+.upload-card { width: 800px; height: 500px; background: #fff; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center; max-width: 100%; }
 .upload-icon-circle { width: 120px; height: 120px; background: #f9f9f9; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin-bottom: 20px; }
 
-:deep(.yt-upload-dialog) { display: flex; flex-direction: column; margin: 0 !important; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 960px !important; height: 90vh !important; max-height: 800px; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+:deep(.yt-upload-dialog) { 
+  display: flex; flex-direction: column; margin: 0 !important; 
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+  width: 960px !important; height: 90vh !important; max-height: 800px; 
+  border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2); 
+  max-width: 98vw; /* Mobile adaption */
+}
 :deep(.el-dialog__header) { padding: 0; margin: 0; border-bottom: 1px solid #e5e5e5; }
 :deep(.el-dialog__body) { padding: 0; flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
@@ -549,6 +555,14 @@ const handleClose = () => {
 .header-left-title { font-weight: 600; font-size: 20px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .close-btn { cursor: pointer; font-size: 24px; color: #606060; }
 .top-progress { position: absolute; bottom: 0; left: 0; width: 100%; }
+
+/* Hide steps on small screens */
+@media screen and (max-width: 768px) {
+  .step-indicator { display: none !important; }
+  .body-content { flex-direction: column; padding: 10px !important; }
+  .right-preview-section { display: none !important; }
+  .upload-card { padding: 20px; height: auto; }
+}
 
 .step-indicator { display: flex; align-items: center; flex: 1; justify-content: center; margin: 0 40px; }
 .step-item { font-size: 14px; color: #606060; font-weight: 500; cursor: default; }

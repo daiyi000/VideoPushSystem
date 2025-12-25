@@ -1,0 +1,182 @@
+/* =========================================
+   1. CSS Variables (Theming)
+   ========================================= */
+:root {
+  /* Colors */
+  --yt-black: #0f0f0f;
+  --yt-gray: #606060;
+  --yt-light-gray: #e5e5e5;
+  --yt-bg-hover: #f2f2f2;
+  --yt-red: #cc0000;
+  --yt-blue: #065fd4;
+  --yt-white: #ffffff;
+  --yt-border: #e5e5e5;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 40px;
+
+  /* Layout */
+  --header-height: 56px;
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 72px;
+
+  /* Font */
+  --font-primary: "YouTube Sans", Roboto, Arial, sans-serif;
+}
+
+/* =========================================
+   2. Reset & Base Styles
+   ========================================= */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-primary);
+  background-color: var(--yt-white);
+  color: var(--yt-black);
+  overflow-x: hidden; /* Prevent horizontal scroll on mobile */
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+/* =========================================
+   3. Unified Layout Containers
+   ========================================= */
+
+/* Main App Wrapper (fixes #app defaults from Vite) */
+#app {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+/* Page Containers */
+.page-container {
+  padding: var(--spacing-lg);
+  max-width: 1600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f9f9f9;
+  padding: 20px;
+}
+
+.studio-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #f9f9f9;
+}
+
+/* Grid Systems */
+.grid-video {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+/* Flex Utilities */
+.flex-row { display: flex; align-items: center; }
+.flex-col { display: flex; flex-direction: column; }
+.flex-center { display: flex; justify-content: center; align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-sm { gap: var(--spacing-sm); }
+.gap-md { gap: var(--spacing-md); }
+
+/* Component: Video Card (Shared) */
+.video-card-common {
+  cursor: pointer;
+  border-radius: 12px;
+  transition: transform 0.2s;
+  overflow: hidden;
+  background: #fff;
+}
+.video-card-common:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* =========================================
+   4. Mobile Adaptation (Global)
+   ========================================= */
+@media screen and (max-width: 768px) {
+  /* Layout Adjustments */
+  .page-container {
+    padding: 12px;
+  }
+  
+  /* Navigation */
+  .app-sidebar {
+    position: fixed;
+    height: 100vh;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  .app-sidebar.open {
+    transform: translateX(0);
+  }
+  
+  /* Grids */
+  .grid-video {
+    grid-template-columns: 1fr; /* Single column on mobile */
+  }
+
+  /* Typography */
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+  
+  /* Element Plus Overrides for Mobile */
+  .el-dialog {
+    width: 95% !important;
+    margin-top: 5vh !important;
+  }
+  
+  /* Upload Page specific */
+  .upload-card {
+    width: 100% !important;
+    height: auto !important;
+    padding: 20px;
+  }
+}
