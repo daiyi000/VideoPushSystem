@@ -69,7 +69,7 @@
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '../store/user';
-import { VideoPlay, Odometer, Files, TrendCharts, MagicStick, Back } from '@element-plus/icons-vue';
+import { VideoPlay, Odometer, Files, TrendCharts, MagicStick, Back, Setting } from '@element-plus/icons-vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -80,6 +80,7 @@ const menuItems = [
   { label: '内容', path: '/studio/content', icon: Files },
   { label: '数据分析', path: '/studio/analytics', icon: TrendCharts },
   { label: '自定义', path: '/studio/customization', icon: MagicStick },
+  { label: '设置', path: '/studio/settings', icon: Setting },
 ];
 
 const currentPageTitle = computed(() => {

@@ -37,9 +37,14 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
     def to_dict(self):
+        avatar_url = self.avatar
+        # 强制修复混合内容问题：如果数据库存的是 http 的本站链接，转为相对路径
+        if avatar_url and 'pay.aeasywink.top' in avatar_url:
+             avatar_url = avatar_url.replace('http://pay.aeasywink.top', '').replace('https://pay.aeasywink.top', '')
+        
         return {
             'id': self.id, 'username': self.username, 'email': self.email, 
-            'avatar': self.avatar, 'banner': self.banner, 'description': self.description,
+            'avatar': avatar_url, 'banner': self.banner, 'description': self.description,
             'is_admin': self.is_admin, 'is_banned': self.is_banned,
             'created_at': self.created_at.strftime('%Y-%m-%d'),
             'verification_type': self.verification_type,
@@ -79,14 +84,28 @@ class Video(db.Model):
     def to_dict(self):
         author_name = self.uploader.username if self.uploader else '未知用户'
         author_avatar = self.uploader.avatar if self.uploader else ''
+        
+        # 强制修复混合内容问题 (将绝对路径转为相对路径)
+        cover = self.cover_url
+        if cover and 'pay.aeasywink.top' in cover:
+             cover = cover.replace('http://pay.aeasywink.top', '').replace('https://pay.aeasywink.top', '')
+             
+        video_url = self.url
+        if video_url and 'pay.aeasywink.top' in video_url:
+             video_url = video_url.replace('http://pay.aeasywink.top', '').replace('https://pay.aeasywink.top', '')
+
+        sub_url = self.subtitle_url
+        if sub_url and 'pay.aeasywink.top' in sub_url:
+             sub_url = sub_url.replace('http://pay.aeasywink.top', '').replace('https://pay.aeasywink.top', '')
+
         return {
             'id': self.id, 'title': self.title, 'description': self.description,
-            'url': self.url, 'cover_url': self.cover_url, 'category': self.category,
+            'url': video_url, 'cover_url': cover, 'category': self.category,
             'views': self.views, 'tags': self.tags, 'status': self.status,
             'visibility': self.visibility, 
             'duration': self.duration,
             'is_short': self.is_short, # 返回标记
-            'subtitle_url': self.subtitle_url, # 返回字幕链接
+            'subtitle_url': sub_url, # 返回字幕链接
             'end_screen_video_ids': self.end_screen_video_ids, # 返回片尾推荐ID
             'upload_time': self.upload_time.strftime('%Y-%m-%d %H:%M'),
             'uploader_id': self.uploader_id, 'uploader_name': author_name, 'uploader_avatar': author_avatar,
@@ -125,17 +144,6 @@ class CommentLike(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     comment_id = db.Column(db.Integer, db.ForeignKey('comments.id'))
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-
-# 5. 弹幕
-class Danmaku(db.Model):
-    __tablename__ = 'danmakus'
-    id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(128), nullable=False)
-    time_point = db.Column(db.Float, nullable=False)
-    color = db.Column(db.String(128), default='#ffffff') 
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    video_id = db.Column(db.Integer, db.ForeignKey('videos.id'))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
 # 6. 关注
@@ -205,3 +213,34 @@ class PasswordResetRequest(db.Model):
             'status': self.status,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S')
         }
+
+# 11. 通知系统
+class Notification(db.Model):
+    __tablename__ = 'notifications'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id')) # 接收者
+    sender_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True) # 触发者
+    type = db.Column(db.String(32)) # 'subscribe', 'recommend', 'interaction', 'reply', 'mention', 'promotion', 'system'
+    content = db.Column(db.String(256))
+    target_url = db.Column(db.String(256)) # 跳转链接
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # 简单的关联，方便查询发送者信息
+    sender = db.relationship('User', foreign_keys=[sender_id])
+    recipient = db.relationship('User', foreign_keys=[user_id], backref=db.backref('notifications', lazy='dynamic'))
+
+class NotificationSetting(db.Model):
+    __tablename__ = 'notification_settings'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True)
+    
+    notify_subscription = db.Column(db.Boolean, default=True) # 订阅频道有新动态
+    notify_recommendation = db.Column(db.Boolean, default=True) # 推荐内容
+    notify_interaction = db.Column(db.Boolean, default=True) # 我的频道/视频有互���
+    notify_comment = db.Column(db.Boolean, default=True) # 评论回复/点赞
+    notify_mention = db.Column(db.Boolean, default=True) # @我
+    notify_promotion = db.Column(db.Boolean, default=True) # 促销
+    notify_system = db.Column(db.Boolean, default=True) # 系统/密码重置
+
+    user = db.relationship('User', backref=db.backref('notification_setting', uselist=False))

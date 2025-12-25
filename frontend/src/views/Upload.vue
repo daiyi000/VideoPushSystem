@@ -393,25 +393,51 @@ const handleFileSelected = async (e) => {
   // 生成唯一 upload_id (时间戳 + 随机数)
   const uploadId = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   
-  const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
+  const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB per chunk
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
   
   try {
-    for (let i = 0; i < totalChunks; i++) {
-      const start = i * CHUNK_SIZE;
+    // 【核心优化】并发上传逻辑
+    const CONCURRENCY = 3; // 同时上传3个分片
+    let completedChunks = 0;
+
+    const uploadChunkTask = async (index) => {
+      const start = index * CHUNK_SIZE;
       const end = Math.min(file.size, start + CHUNK_SIZE);
       const chunk = file.slice(start, end);
 
       const formData = new FormData();
       formData.append('file', chunk);
-      formData.append('chunk_index', i);
+      formData.append('chunk_index', index);
       formData.append('upload_id', uploadId);
 
       await uploadVideoChunk(formData);
-      
-      // 更新进度
-      uploadPercentage.value = Math.floor(((i + 1) / totalChunks) * 90);
+      completedChunks++;
+      uploadPercentage.value = Math.floor((completedChunks / totalChunks) * 90);
+    };
+
+    // 创建任务队列
+    const tasks = [];
+    for (let i = 0; i < totalChunks; i++) {
+        tasks.push(() => uploadChunkTask(i));
     }
+
+    // 执行并发控制
+    const runPool = async () => {
+        const pool = [];
+        for (const task of tasks) {
+            const p = task().then(() => {
+                 pool.splice(pool.indexOf(p), 1);
+            });
+            pool.push(p);
+            if (pool.length >= CONCURRENCY) {
+                await Promise.race(pool);
+            }
+        }
+        await Promise.all(pool);
+    };
+
+    await runPool();
 
     // 所有分片上传完成，请求合并
     const mergeData = {
@@ -581,4 +607,15 @@ const handleClose = () => {
 .link-val { color: #065fd4; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 150px; }
 
 .dialog-footer { height: 60px; border-top: 1px solid #e5e5e5; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; background: #fff; }
+
+/* End Screen Selection Styles */
+.video-select-list { max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.video-select-item { display: flex; gap: 10px; padding: 10px; border: 1px solid #eee; border-radius: 4px; cursor: pointer; transition: background 0.2s; align-items: center; }
+.video-select-item:hover { background: #f5f5f5; }
+.video-select-item.selected { background: #e6f7ff; border-color: #1890ff; }
+.select-thumb { width: 120px; height: 68px; object-fit: cover; border-radius: 4px; flex-shrink: 0; background: #eee; }
+.select-info { flex: 1; min-width: 0; }
+.select-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.select-meta { font-size: 12px; color: #999; }
+.check-icon { font-size: 20px; font-weight: bold; }
 </style>

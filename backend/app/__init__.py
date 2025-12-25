@@ -86,6 +86,9 @@ def create_app():
     from .api.pay import pay_bp
     app.register_blueprint(pay_bp, url_prefix='/api/pay')
 
+    from .api.notification import notification_bp
+    app.register_blueprint(notification_bp, url_prefix='/api/notification')
+
     @app.route('/docs')
     def redoc_docs():
         return render_template('redoc.html')

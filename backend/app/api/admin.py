@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request, current_app
 from sqlalchemy import func
 from flasgger import swag_from
-from ..models import User, Video, ActionLog, db, Comment, Danmaku, playlist_video, PasswordResetRequest
+from ..models import User, Video, ActionLog, db, Comment, playlist_video, PasswordResetRequest
 from .. import mail
 from flask_mail import Message
 import jwt
@@ -131,9 +131,10 @@ def delete_video_admin():
     if video:
         try:
             db.session.execute(playlist_video.delete().where(playlist_video.c.video_id == video_id))
-            Danmaku.query.filter_by(video_id=video_id).delete()
+            # 删除相关评论、日志
             Comment.query.filter_by(video_id=video_id).delete()
             ActionLog.query.filter_by(video_id=video_id).delete()
+            
             db.session.delete(video)
             db.session.commit()
             return jsonify({'code': 200, 'msg': '删除成功'})

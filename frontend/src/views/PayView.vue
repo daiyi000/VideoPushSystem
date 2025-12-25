@@ -3,14 +3,18 @@
     <h1>申请认证</h1>
     <div class="plans">
       <div class="plan-card" :class="{ active: selected === 1 }" @click="selected = 1">
-        <div class="icon-box blue"><el-icon><Select /></el-icon></div>
+        <div class="icon-box blue">
+           <img src="@/assets/icons/verified.svg" class="custom-icon" />
+        </div>
         <h3>个人认证</h3>
         <p class="price">¥ 0.01 <span class="old">¥9.9</span></p>
         <ul><li>获得蓝色对勾徽章</li><li>身份标识</li></ul>
       </div>
 
       <div class="plan-card" :class="{ active: selected === 2 }" @click="selected = 2">
-        <div class="icon-box yellow"><el-icon><Headset /></el-icon></div>
+        <div class="icon-box yellow">
+           <img src="@/assets/icons/music.svg" class="custom-icon" />
+        </div>
         <h3>音乐人认证</h3>
         <p class="price">¥ 0.02 <span class="old">¥19.9</span></p>
         <ul><li>获得黄色音符徽章</li><li>专属音乐区流量</li></ul>
@@ -123,6 +127,7 @@ const handlePay = async () => {
 }
 .plan-card:hover, .plan-card.active { border-color: #0f0f0f; transform: translateY(-5px); }
 .icon-box { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; color: white; font-size: 24px; }
+.custom-icon { width: 30px; height: 30px; filter: brightness(0) invert(1); }
 .blue { background: #409EFF; }
 .yellow { background: #E6A23C; }
 .price { font-size: 24px; font-weight: bold; margin: 10px 0; }

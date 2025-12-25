@@ -7,7 +7,7 @@ import shutil
 from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
-from ..models import Video, User, ActionLog, Follow, db, Comment, Danmaku, playlist_video
+from ..models import Video, User, ActionLog, Follow, db, Comment, playlist_video
 from flasgger import swag_from
 from sqlalchemy import func
 
@@ -334,7 +334,13 @@ def get_video_detail(video_id):
     uploader = User.query.get(video.uploader_id)
     video_data = video.to_dict()
     video_data['uploader_name'] = uploader.username if uploader else '未知'
-    video_data['uploader_avatar'] = uploader.avatar if uploader else ''
+    
+    # 修复 uploader_avatar 混合内容
+    up_avatar = uploader.avatar if uploader else ''
+    if up_avatar and 'pay.aeasywink.top' in up_avatar:
+        up_avatar = up_avatar.replace('http://pay.aeasywink.top', '').replace('https://pay.aeasywink.top', '')
+    video_data['uploader_avatar'] = up_avatar
+    
     video_data['likes'] = likes_count
     return jsonify({'code': 200, 'data': video_data})
 
@@ -344,7 +350,6 @@ def delete_video(video_id):
     if not video: return jsonify({'code': 404, 'msg': '视频不存在'}), 404
     try:
         db.session.execute(playlist_video.delete().where(playlist_video.c.video_id == video_id))
-        Danmaku.query.filter_by(video_id=video_id).delete()
         Comment.query.filter_by(video_id=video_id).delete()
         ActionLog.query.filter_by(video_id=video_id).delete()
         db.session.delete(video)
@@ -355,34 +360,31 @@ def delete_video(video_id):
         return jsonify({'code': 500, 'msg': '删除失败'})
 
 @video_bp.route('/action', methods=['POST'])
-@swag_from('../docs/video/action.yml') # <--- 修改
+@swag_from('../docs/video/action.yml')
 def video_action():
     data = request.get_json()
     user_id = data.get('user_id')
     video_id = data.get('video_id')
     action_type = data.get('type')
     
-    if action_type == 'view':
-        existing_log = ActionLog.query.filter_by(
-            user_id=user_id, 
-            video_id=video_id, 
-            action_type='view'
-        ).first()
+    if not all([user_id, video_id, action_type]):
+        return jsonify({'code': 400, 'msg': '参数缺失'}), 400
 
-        if existing_log:
-            existing_log.timestamp = datetime.utcnow()
-        else:
-            log = ActionLog(user_id=user_id, video_id=video_id, action_type='view', progress=0)
-            db.session.add(log)
+    video = Video.query.get(video_id)
+    if not video:
+        return jsonify({'code': 404, 'msg': '视频不存在'}), 404
         
+    sender = User.query.get(user_id)
+    if not sender:
+        return jsonify({'code': 404, 'msg': '操作用户不存在'}), 404
+
+    # --- View & Progress Logic ---
+    if action_type == 'view':
+        log = ActionLog(user_id=user_id, video_id=video_id, action_type='view', progress=0)
+        db.session.add(log)
     elif action_type == 'progress':
         progress = data.get('progress', 0)
-        log = ActionLog.query.filter_by(
-            user_id=user_id, 
-            video_id=video_id, 
-            action_type='view'
-        ).first()
-
+        log = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='view').first()
         if log:
             log.progress = int(progress)
             log.timestamp = datetime.utcnow()
@@ -390,21 +392,36 @@ def video_action():
             log = ActionLog(user_id=user_id, video_id=video_id, action_type='view', progress=int(progress))
             db.session.add(log)
 
+    # --- Favorite Logic ---
     elif action_type == 'favorite':
         exists = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='favorite').first()
         if not exists:
             log = ActionLog(user_id=user_id, video_id=video_id, action_type='favorite', weight=5)
             db.session.add(log)
-    
+            if str(video.uploader_id) != str(user_id):
+                try:
+                    create_notification(video.uploader_id, user_id, 'interaction', f'{sender.username} 收藏了你的视频: {video.title}', f'/video/{video_id}')
+                except Exception as e:
+                    print(f"Notification Error (Favorite): {e}")
+
     elif action_type == 'unfavorite':
         ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='favorite').delete()
-    
+
+    # --- Like Logic ---
     elif action_type == 'like':
         exists = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='like').first()
         if not exists:
             log = ActionLog(user_id=user_id, video_id=video_id, action_type='like', weight=3)
             db.session.add(log)
-    
+            dislike = ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='dislike').first()
+            if dislike:
+                db.session.delete(dislike)
+            if str(video.uploader_id) != str(user_id):
+                try:
+                    create_notification(video.uploader_id, user_id, 'interaction', f'{sender.username} 赞了你的视频: {video.title}', f'/video/{video_id}')
+                except Exception as e:
+                    print(f"Notification Error (Like): {e}")
+
     elif action_type == 'unlike':
         ActionLog.query.filter_by(user_id=user_id, video_id=video_id, action_type='like').delete()
         

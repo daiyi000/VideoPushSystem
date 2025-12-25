@@ -6,6 +6,7 @@ from flask_mail import Message
 from flasgger import swag_from # 引入 swag_from 装饰器
 from .. import mail 
 from ..models import User, EmailCaptcha, PasswordResetRequest, db
+from .notification import create_notification
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -19,16 +20,25 @@ def forgot_password():
         
     user = User.query.filter_by(email=email).first()
     if not user:
-        # 为了安全，即使邮箱不存在也提示发送成功，防止枚举，或者明确提示不存在
-        # 这里为了演示方便，提示不存在
         return jsonify({'code': 404, 'msg': '该邮箱未注册'}), 404
     
     # 创建重置请求
-    # 检查是否已有待处理的请求
     existing = PasswordResetRequest.query.filter_by(user_id=user.id, status='pending').first()
     if not existing:
         req = PasswordResetRequest(user_id=user.id, email=email)
         db.session.add(req)
+
+        # 通知所有管理员
+        admins = User.query.filter_by(is_admin=True).all()
+        for admin in admins:
+            create_notification(
+                user_id=admin.id,
+                sender_id=user.id,
+                type='system',
+                content=f'用户 {user.username} ({user.email}) 请求重置密码。',
+                target_url='/admin/users' # 指向用户管理页面
+            )
+        
         db.session.commit()
     
     return jsonify({'code': 200, 'msg': '请求已提交，请联系管理员或等待邮件'})

@@ -24,6 +24,10 @@ export default defineConfig({
         // 如果你的后端接口不带 /api 前缀，需要把 /api 去掉，
         // 但根据你的 request.js，你后端路由应该就是带 /api 的，所以通常不需要 rewrite
         // rewrite: (path) => path.replace(/^\/api/, '') 
+      },
+      '/static': {
+        target: 'http://localhost:5000',
+        changeOrigin: true
       }
     }
   }

@@ -26,14 +26,6 @@ export function pinComment(data) {
   // data: { user_id, comment_id }
   return request({ url: '/interaction/comment/pin', method: 'post', data });
 }
-// 获取弹幕
-export function getDanmaku(videoId) {
-  return request({ url: `/interaction/danmaku?video_id=${videoId}`, method: 'get' });
-}
-// 发送弹幕
-export function sendDanmaku(data) {
-  return request({ url: '/interaction/danmaku/send', method: 'post', data });
-}
 // 检查点赞/收藏状态
 export function checkInteractionStatus(userId, videoId) {
   return request({ 

@@ -27,6 +27,7 @@ import StudioDashboard from '../views/studio/StudioDashboard.vue';
 import StudioContent from '../views/studio/StudioContent.vue';
 import StudioAnalytics from '../views/studio/StudioAnalytics.vue';
 import StudioCustomization from '../views/studio/StudioCustomization.vue';
+import NotificationSettings from '../views/studio/NotificationSettings.vue';
 
 import Shorts from '../views/Shorts.vue';
 
@@ -67,6 +68,7 @@ const routes = [
       // 【修改】支持可选的 videoId 参数，用于区分频道整体分析和单个视频分析
       { path: 'analytics/:videoId?', component: StudioAnalytics },
       { path: 'customization', component: StudioCustomization },
+      { path: 'settings', component: NotificationSettings },
       // 默认跳转到仪表盘
       { path: '', redirect: '/studio/dashboard' }
     ]

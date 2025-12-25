@@ -256,97 +256,49 @@ const stopDrag = (e) => {
   }
 };
 
-const onLoadedMetadata = () => {
-  duration.value = videoRef.value.duration;
-  isEnded.value = false;
-  if (props.autoplay) togglePlay();
-  
-  if (videoRef.value.textTracks && videoRef.value.textTracks[0]) {
-       videoRef.value.textTracks[0].mode = showSubtitle.value ? 'showing' : 'hidden';
-  }
-};
-
-const onProgress = () => {
-  if (videoRef.value.buffered.length > 0) {
-    const bufferedEnd = videoRef.value.buffered.end(videoRef.value.buffered.length - 1);
-    bufferedPercentage.value = (bufferedEnd / duration.value) * 100;
-  }
-};
-
-const onEnded = () => {
-  isPlaying.value = false;
-  isEnded.value = true;
-  emit('ended');
-};
-
-const seek = (e) => {
-  if(!isDragging.value) {
-     const rect = progressRef.value.getBoundingClientRect();
-     const pos = (e.clientX - rect.left) / rect.width;
-     videoRef.value.currentTime = pos * duration.value;
-     if(isEnded.value) isEnded.value = false;
-  }
-};
-
-const updateVolume = () => { videoRef.value.volume = volume.value; isMuted.value = volume.value === 0; };
-const toggleMute = () => {
-  if (isMuted.value) {
-    videoRef.value.volume = volume.value || 1;
-    isMuted.value = false;
-  } else {
-    videoRef.value.volume = 0;
-    isMuted.value = true;
-  }
-};
-
-const toggleFullscreen = () => {
-  if (!document.fullscreenElement) {
-    playerContainer.value.requestFullscreen();
-  } else {
-    document.exitFullscreen();
-  }
-};
-
-const handleMouseMove = () => {
-  showControls.value = true;
-  clearTimeout(controlTimer);
-  controlTimer = setTimeout(() => {
-    if (isPlaying.value) showControls.value = false;
-  }, 3000);
-};
-
-const handleKeydown = (e) => {
-  if (e.code === 'Space') {
-    e.preventDefault(); 
-    togglePlay();
-  }
-};
-
-const setCurrentTime = (time) => {
-  const video = videoRef.value;
-  if (!video) return;
-  const doSeek = () => {
-    if (typeof time === 'number' && time > 0) video.currentTime = time;
-  };
-  if (video.readyState >= 1) {
-    doSeek();
-  } else {
-    const handler = () => { doSeek(); video.removeEventListener('loadedmetadata', handler); };
-    video.addEventListener('loadedmetadata', handler);
-  }
-};
-
 const playVideo = async () => {
   if (!videoRef.value) return;
   try {
     await videoRef.value.play();
     isPlaying.value = true;
   } catch (err) {
-    console.warn("Autoplay blocked", err);
+    console.warn("Autoplay blocked, trying muted:", err);
     videoRef.value.muted = true;
     isMuted.value = true;
-    await videoRef.value.play();
-    isPlaying.value = true;
+    try {
+        await videoRef.value.play();
+        isPlaying.value = true;
+    } catch(e) {
+        console.error("Autoplay failed even muted:", e);
+    }
+  }
+};
+
+const onLoadedMetadata = () => {
+  duration.value = videoRef.value.duration;
+  isEnded.value = false;
+  if (props.autoplay) playVideo();
+  
+  if (videoRef.value.textTracks && videoRef.value.textTracks[0]) {
+       videoRef.value.textTracks[0].mode = showSubtitle.value ? 'showing' : 'hidden';
+  }
+};
+
+const setCurrentTime = (time) => {
+  if (videoRef.value) {
+    videoRef.value.currentTime = time;
+  }
+};
+
+// 【核心修复】鼠标移动时显示控制栏，3秒后自动隐藏
+const handleMouseMove = () => {
+  showControls.value = true;
+  if (controlTimer) clearTimeout(controlTimer);
+  
+  if (isPlaying.value) {
+    controlTimer = setTimeout(() => {
+      showControls.value = false;
+    }, 3000);
   }
 };
 

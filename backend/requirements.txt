@@ -16,3 +16,4 @@ pymysql
 python-alipay-sdk>=3.0.0
 cryptography>=3.4.0
 python-dotenv
+gunicorn

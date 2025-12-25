@@ -25,6 +25,46 @@
         <div class="icon-btn-wrapper" @click="$router.push('/upload')" title="创建">
            <el-icon size="24"><VideoCamera /></el-icon>
         </div>
+
+        <el-popover
+          v-if="userStore.token"
+          placement="bottom-end"
+          :width="320"
+          trigger="click"
+          popper-style="padding: 0;"
+        >
+          <template #reference>
+            <div class="icon-btn-wrapper" title="通知" style="position: relative;">
+               <el-icon size="24"><Bell /></el-icon>
+               <div v-if="unreadCount > 0" style="position: absolute; top: 4px; right: 4px; background: #ff0000; color: white; border-radius: 50%; width: 8px; height: 8px;"></div>
+            </div>
+          </template>
+          
+          <div class="notification-box">
+             <div class="notif-header">
+                <span>通知</span>
+                <span class="mark-read-btn" @click="markAllRead">全部已读</span>
+             </div>
+             <div class="notif-list" style="max-height: 400px; overflow-y: auto;">
+                <div v-if="notificationList.length === 0" style="padding: 20px; text-align: center; color: #999;">
+                   暂无通知
+                </div>
+                <div 
+                   v-for="item in notificationList" 
+                   :key="item.id" 
+                   class="notif-item" 
+                   :class="{ unread: !item.is_read }"
+                   @click="handleNotificationClick(item)"
+                >
+                   <el-avatar :size="36" :src="item.sender ? item.sender.avatar : ''" style="flex-shrink: 0;" />
+                   <div class="notif-content">
+                      <div>{{ item.content }}</div>
+                      <div class="notif-time">{{ item.time }}</div>
+                   </div>
+                </div>
+             </div>
+          </div>
+        </el-popover>
         
         <div v-if="!userStore.token" style="margin-left:15px">
           <el-button type="primary" round plain @click="$router.push('/login')">
@@ -44,6 +84,7 @@
               </el-dropdown-item>
               <el-dropdown-item command="channel"><el-icon><User /></el-icon> 我的频道</el-dropdown-item>
               <el-dropdown-item command="studio"><el-icon><VideoPlay /></el-icon> 创作者工作室</el-dropdown-item>
+              <el-dropdown-item command="pay"><el-icon><Money /></el-icon> 认证中心</el-dropdown-item>
               <el-dropdown-item command="profile"><el-icon><Collection /></el-icon> 历史与收藏</el-dropdown-item>
               <el-dropdown-item command="logout" divided><el-icon><SwitchButton /></el-icon> 退出登录</el-dropdown-item>
             </el-dropdown-menu>
@@ -92,13 +133,15 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '../store/user';
 import request from '../api/request';
-import { Menu, VideoPlay, Search, VideoCamera, HomeFilled, Collection, Monitor, Film, User, SwitchButton, Clock, Star } from '@element-plus/icons-vue';
+import { Menu, VideoPlay, Search, VideoCamera, HomeFilled, Collection, Monitor, Film, User, SwitchButton, Bell, Money } from '@element-plus/icons-vue';
 
 const router = useRouter();
 const userStore = useUserStore();
 const isCollapsed = ref(false);
 const keyword = ref('');
 const followingList = ref([]);
+const notificationList = ref([]);
+const unreadCount = ref(0);
 
 const toggleSidebar = () => { isCollapsed.value = !isCollapsed.value; };
 const handleSearch = () => { if (keyword.value.trim()) { router.push(`/?q=${keyword.value}&t=${Date.now()}`); } };
@@ -109,6 +152,7 @@ const handleCommand = (cmd) => {
   if (cmd === 'channel') router.push(`/@${userStore.userInfo.username}`);
   if (cmd === 'studio') router.push('/studio/dashboard');
   if (cmd === 'admin') router.push('/admin/dashboard');
+  if (cmd === 'pay') window.location.href = 'https://pay.aeasywink.top/pay';
 };
 const fetchFollowing = async () => {
   if (!userStore.token) return;
@@ -117,11 +161,54 @@ const fetchFollowing = async () => {
     if (res.data.code === 200) followingList.value = res.data.data;
   } catch (e) { console.error(e); }
 };
-onMounted(() => { fetchFollowing(); });
+
+const fetchNotifications = async () => {
+  if (!userStore.token) return;
+  try {
+     const res = await request.get(`/notification/list?user_id=${userStore.userInfo.id}`);
+     if(res.data.code === 200) {
+        notificationList.value = res.data.data;
+        unreadCount.value = notificationList.value.filter(n => !n.is_read).length;
+     }
+  } catch(e) { console.error(e); }
+};
+
+const handleNotificationClick = async (n) => {
+   if(!n.is_read) {
+      await request.post('/notification/read', { id: n.id, user_id: userStore.userInfo.id });
+      n.is_read = true;
+      unreadCount.value = Math.max(0, unreadCount.value - 1);
+   }
+   if(n.target_url) {
+      router.push(n.target_url);
+   }
+};
+
+const markAllRead = async () => {
+   await request.post('/notification/read', { id: 'all', user_id: userStore.userInfo.id });
+   notificationList.value.forEach(n => n.is_read = true);
+   unreadCount.value = 0;
+};
+
+onMounted(() => { 
+  fetchFollowing(); 
+  fetchNotifications();
+  // Simple polling for demo
+  setInterval(fetchNotifications, 30000);
+});
 </script>
 
 <style scoped>
 .app-layout { height: 100vh; display: flex; flex-direction: column; }
+/* Notification Styles */
+.notif-item { padding: 10px; border-bottom: 1px solid #f0f0f0; cursor: pointer; display: flex; gap: 10px; transition: background 0.2s; }
+.notif-item:hover { background: #f9f9f9; }
+.notif-item.unread { background: #f0f7ff; }
+.notif-item.unread:hover { background: #e6f2ff; }
+.notif-content { flex: 1; font-size: 13px; color: #333; line-height: 1.4; }
+.notif-time { font-size: 11px; color: #999; margin-top: 4px; }
+.notif-header { padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; font-weight: bold; }
+.mark-read-btn { font-size: 12px; color: #065fd4; cursor: pointer; }
 
 /* Header - 透明毛玻璃核心 */
 .app-header {

@@ -1,7 +1,7 @@
 import random
 from app import create_app, db
 # 引入所有相关模型
-from app.models import User, Video, ActionLog, Follow, Comment, Danmaku, Playlist, CommentLike, EmailCaptcha, playlist_video
+from app.models import User, Video, ActionLog, Follow, Comment, Playlist, CommentLike, EmailCaptcha, playlist_video
 from datetime import datetime, timedelta
 
 app = create_app()
@@ -18,11 +18,8 @@ def seed():
         db.session.query(Comment).update({Comment.parent_id: None})
         db.session.commit()
         
-        db.session.query(Comment).delete()
-        db.session.query(Danmaku).delete()
-        db.session.query(ActionLog).delete()
-        db.session.query(Playlist).delete()
-        db.session.query(Follow).delete()
+    db.session.query(Comment).delete()
+    db.session.query(Follow).delete()
         db.session.query(EmailCaptcha).delete()
         db.session.query(Video).delete()
         db.session.query(User).delete()

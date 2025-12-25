@@ -5,6 +5,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash
 from ..models import User, Video, ActionLog, Follow, Playlist, db
 from flasgger import swag_from
+from .notification import create_notification
 
 user_bp = Blueprint('user', __name__)
 
@@ -92,6 +93,20 @@ def toggle_follow():
         new_follow = Follow(follower_id=follower_id, followed_id=followed_id)
         db.session.add(new_follow)
         is_following = True
+        
+        # 触发关注通知
+        sender = User.query.get(follower_id)
+        try:
+            create_notification(
+                user_id=followed_id,
+                sender_id=follower_id,
+                type='subscribe',
+                content=f'{sender.username} 关注了你的频道',
+                target_url=f'/@{sender.username}'
+            )
+        except Exception as e:
+            print(f"Notification Error (Follow): {e}")
+        
     db.session.commit()
     fans_count = Follow.query.filter_by(followed_id=followed_id).count()
     return jsonify({'code': 200, 'msg': '操作成功', 'is_following': is_following, 'fans_count': fans_count})
@@ -159,7 +174,11 @@ def get_following_list():
     result = []
     for f in follows:
         author = User.query.get(f.followed_id)
-        if author: result.append({ 'id': author.id, 'username': author.username, 'avatar': author.avatar })
+        if author: 
+            avatar_url = author.avatar
+            if avatar_url and 'pay.aeasywink.top' in avatar_url:
+                avatar_url = avatar_url.replace('http://pay.aeasywink.top', '').replace('https://pay.aeasywink.top', '')
+            result.append({ 'id': author.id, 'username': author.username, 'avatar': avatar_url })
     return jsonify({'code': 200, 'data': result})
 
 @user_bp.route('/my_videos', methods=['GET'])

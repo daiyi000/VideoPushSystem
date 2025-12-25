@@ -22,20 +22,6 @@
                 @navigate="goToVideo"
               />
               
-              <!-- 弹幕层 -->
-              <div class="danmaku-layer" :style="{ animationPlayState: isVideoPaused ? 'paused' : 'running' }">
-                <div v-for="dm in activeDanmakus" :key="dm.id" class="danmaku-item"
-                  :style="{ top: dm.top + '%', color: dm.color, animationDuration: dm.speed + 's', animationPlayState: isVideoPaused ? 'paused' : 'running' }">
-                  {{ dm.text }}
-                </div>
-              </div>
-              
-              <!-- 弹幕输入 -->
-              <div class="danmaku-input-bar">
-                <el-color-picker v-model="danmakuColor" size="small" show-alpha />
-                <input v-model="danmakuText" class="dm-input" placeholder="发个弹幕..." @keyup.enter="fireDanmaku"/>
-                <button class="dm-send-btn" @click="fireDanmaku">发送</button>
-              </div>
             </div>
             
             <!-- 2. 视频信息区 -->
@@ -261,7 +247,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '../store/user';
 import { getVideoDetail, postAction, checkFavStatus } from '../api/video';
 import { getRelatedVideos } from '../api/recommend';
-import { getComments, sendComment, likeComment, pinComment, getDanmaku, sendDanmaku, checkInteractionStatus } from '../api/interaction';
+import { getComments, sendComment, likeComment, pinComment, checkInteractionStatus } from '../api/interaction';
 import { toggleFollow, getChannelInfo } from '../api/user';
 import { getPlaylistVideos } from '../api/playlist'; 
 import { getVideosByIds } from '../api/video';
@@ -289,10 +275,6 @@ const replyText = ref('');
 const replyTargetId = ref(null);
 const sortType = ref('hot');
 
-const danmakuText = ref('');
-const danmakuColor = ref('#FFFFFF');
-const allDanmakus = ref([]); 
-const activeDanmakus = ref([]);
 const isVideoPaused = ref(false);
 
 const playlistVideos = ref([]);
@@ -308,7 +290,9 @@ const isOwner = computed(() => {
 });
 
 const loadPageData = async (videoId) => {
-  activeDanmakus.value = [];
+  // 重置状态
+  interaction.value = { is_fav: false, is_like: false, last_progress: 0 };
+  channelStats.value.is_following = false;
   try {
     const res = await getVideoDetail(videoId);
     video.value = res.data.data;
@@ -345,7 +329,6 @@ const loadPageData = async (videoId) => {
     }
 
     loadComments();
-    loadDanmaku(videoId);
 
     if (userStore.token) {
       // 1. 获取交互状态（定义 statusRes）
@@ -428,11 +411,12 @@ const handleLikeComment = async (comment) => { if (!userStore.token) return ElMe
 const handlePin = async (commentId) => { try { await pinComment({ user_id: userStore.userInfo.id, comment_id: commentId }); ElMessage.success('操作成功'); loadComments(); } catch (e) { ElMessage.error('操作失败'); } };
 const toggleLike = async () => { if (!userStore.token) return ElMessage.warning('请先登录'); const isLiking = !interaction.value.is_like; const type = isLiking ? 'like' : 'unlike'; try { interaction.value.is_like = isLiking; if (isLiking) { currentLikes.value += 1; } else { currentLikes.value -= 1; } await postAction({ user_id: userStore.userInfo.id, video_id: video.value.id, type }); } catch (e) { interaction.value.is_like = !isLiking; currentLikes.value = isLiking ? currentLikes.value - 1 : currentLikes.value + 1; ElMessage.error('操作失败'); } };
 const toggleFav = async () => { if (!userStore.token) return ElMessage.warning('请先登录'); const type = interaction.value.is_fav ? 'unfavorite' : 'favorite'; try { await postAction({ user_id: userStore.userInfo.id, video_id: video.value.id, type }); interaction.value.is_fav = !interaction.value.is_fav; } catch (e) { ElMessage.error('操作失败'); } };
-const loadDanmaku = async (vid) => { const res = await getDanmaku(vid); allDanmakus.value = res.data.data; };
-const fireDanmaku = async () => { if (!userStore.token) return ElMessage.warning('登录后发弹幕'); if (!danmakuText.value) return; const time = currentVideoTime.value; const text = danmakuText.value; const color = danmakuColor.value || '#FFFFFF'; await sendDanmaku({ user_id: userStore.userInfo.id, video_id: video.value.id, text, time, color }); pushDanmakuToScreen({ text, color }); danmakuText.value = ''; ElMessage.success('发射成功'); };
-const pushDanmakuToScreen = (dm) => { const id = Date.now() + Math.random(); activeDanmakus.value.push({ id, text: dm.text, color: dm.color, top: Math.random() * 80, speed: 5 + Math.random() * 5 }); setTimeout(() => { activeDanmakus.value = activeDanmakus.value.filter(d => d.id !== id); }, 10000); };
+const handleShare = () => {
+   const url = window.location.href;
+   navigator.clipboard.writeText(url).then(() => { ElMessage.success('链接已复制'); });
+};
 
-// 新增：保存进度到后端的函数
+// 监听播放时间，触发弹幕 (Removed)
 const saveProgress = async (time) => {
   if (!userStore.token || !video.value) return;
   if (isNaN(time) || time < 0) return;
@@ -455,15 +439,7 @@ const saveProgress = async (time) => {
 const handleTimeUpdate = (time) => {
   currentVideoTime.value = time;
   
-  // 1. 弹幕逻辑
-  allDanmakus.value.forEach(dm => { 
-    if (Math.abs(dm.time - time) < 0.5 && !dm.shown) { 
-      pushDanmakuToScreen(dm); 
-      dm.shown = true; 
-    } 
-  });
-
-  // 2. 进度保存逻辑 (每 5 秒保存一次)
+  // 进度保存逻辑 (每 5 秒保存一次)
   const now = Date.now();
   if (now - lastSaveTime > 5000) {
     saveProgress(time);
@@ -508,13 +484,6 @@ onBeforeUnmount(() => {
 .content-wrapper { background: transparent; margin-bottom: 20px; }
 .video-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; overflow: hidden; border-radius: 12px; }
 .real-video { width: 100%; height: 100%; }
-.danmaku-layer { position: absolute; top: 0; left: 0; width: 100%; height: 85%; pointer-events: none; overflow: hidden; }
-.danmaku-item { position: absolute; right: -100px; white-space: nowrap; font-size: 20px; font-weight: bold; text-shadow: 1px 1px 2px black; animation-name: danmaku-move; animation-timing-function: linear; will-change: transform, left; }
-@keyframes danmaku-move { from { transform: translateX(0); left: 100%; } to { transform: translateX(-200%); left: -100%; } }
-.danmaku-input-bar { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 30px; opacity: 0; transition: opacity 0.3s; z-index: 10;}
-.video-container:hover .danmaku-input-bar { opacity: 1; }
-.dm-input { background: transparent; border: none; color: white; width: 200px; outline: none; font-size: 14px; }
-.dm-send-btn { background: #409EFF; border: none; color: white; border-radius: 15px; padding: 5px 15px; cursor: pointer; font-size: 12px; }
 
 .info-section { padding: 20px 0; }
 .title { font-size: 20px; font-weight: 700; margin: 0 0 10px 0; line-height: 28px; color: #0f0f0f; }

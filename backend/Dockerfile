@@ -19,6 +19,9 @@ COPY . .
 # 暴露端口
 EXPOSE 5000
 
-# 启动命令 (生产环境建议用 gunicorn，毕设用 python run.py 也行)
-# 注意：run.py 里 app.run(host='0.0.0.0') 必须由 127.0.0.1 改为 0.0.0.0
-CMD ["python", "run.py"]
+# 启动命令 (使用 Gunicorn 替代 Flask dev server)
+# -w 4: 4个worker进程
+# -b 0.0.0.0:5000: 绑定所有IP的5000端口
+# --timeout 300: 超时时间设为300秒 (5分钟)，防止大文件上传/合并时超时
+# run:app : 加载 run.py 中的 app 对象
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "--timeout", "300", "run:app"]

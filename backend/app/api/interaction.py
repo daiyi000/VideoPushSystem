@@ -1,8 +1,9 @@
 import os
 from flask import Blueprint, request, jsonify
-from ..models import Comment, Danmaku, User, Video, db, ActionLog, CommentLike
+from ..models import Comment, User, Video, db, ActionLog, CommentLike, Notification, NotificationSetting
 from datetime import datetime
 from flasgger import swag_from
+from .notification import create_notification
 
 interaction_bp = Blueprint('interaction', __name__)
 
@@ -32,14 +33,22 @@ def get_comments():
         replies_obj = c.replies.order_by(Comment.timestamp.asc()).all()
         replies_data = []
         for r in replies_obj:
+            r_avatar = r.user.avatar
+            if r_avatar and 'pay.aeasywink.top' in r_avatar:
+                r_avatar = r_avatar.replace('http://pay.aeasywink.top', '').replace('https://pay.aeasywink.top', '')
+                
             replies_data.append({
                 'id': r.id,
                 'content': r.content,
                 'time': r.timestamp.strftime('%Y-%m-%d %H:%M'),
                 'likes': r.likes,
                 'is_liked': r.id in liked_comment_ids,
-                'user': {'id': r.user.id, 'username': r.user.username, 'avatar': r.user.avatar, 'verification_type': r.user.verification_type}
+                'user': {'id': r.user.id, 'username': r.user.username, 'avatar': r_avatar, 'verification_type': r.user.verification_type}
             })
+
+        c_avatar = c.user.avatar
+        if c_avatar and 'pay.aeasywink.top' in c_avatar:
+            c_avatar = c_avatar.replace('http://pay.aeasywink.top', '').replace('https://pay.aeasywink.top', '')
 
         data.append({
             'id': c.id,
@@ -48,7 +57,7 @@ def get_comments():
             'likes': c.likes,
             'is_pinned': c.is_pinned,
             'is_liked': c.id in liked_comment_ids,
-            'user': {'id': c.user.id, 'username': c.user.username, 'avatar': c.user.avatar, 'verification_type': c.user.verification_type},
+            'user': {'id': c.user.id, 'username': c.user.username, 'avatar': c_avatar, 'verification_type': c.user.verification_type},
             'replies': replies_data
         })
         
@@ -58,13 +67,51 @@ def get_comments():
 @swag_from('../docs/interaction/add_comment.yml') # <--- 修改
 def add_comment():
     data = request.get_json()
+    sender_id = data.get('user_id')
+    video_id = data.get('video_id')
+    content = data.get('content')
+    parent_id = data.get('parent_id')
+    
     new_comment = Comment(
-        content=data.get('content'),
-        user_id=data.get('user_id'),
-        video_id=data.get('video_id'),
-        parent_id=data.get('parent_id')
+        content=content,
+        user_id=sender_id,
+        video_id=video_id,
+        parent_id=parent_id
     )
     db.session.add(new_comment)
+    
+    # 触发通知
+    sender = User.query.get(sender_id)
+    video = Video.query.get(video_id)
+    
+    if parent_id:
+        # 回复评论通知
+        parent_comment = Comment.query.get(parent_id)
+        if parent_comment and str(parent_comment.user_id) != str(sender_id):
+            try:
+                create_notification(
+                    user_id=parent_comment.user_id,
+                    sender_id=sender_id,
+                    type='comment', # 或 reply
+                    content=f'{sender.username} 回复了你的评论: {content[:20]}...',
+                    target_url=f'/video/{video_id}'
+                )
+            except Exception as e:
+                print(f"Notification Error (Reply): {e}")
+    else:
+        # 视频评论通知 (通知作者)
+        if str(video.uploader_id) != str(sender_id):
+            try:
+                create_notification(
+                    user_id=video.uploader_id,
+                    sender_id=sender_id,
+                    type='interaction', 
+                    content=f'{sender.username} 评论了你的视频: {content[:20]}...',
+                    target_url=f'/video/{video_id}'
+                )
+            except Exception as e:
+                print(f"Notification Error (Comment): {e}")
+            
     db.session.commit()
     return jsonify({'code': 200, 'msg': '评论成功'})
 
@@ -95,6 +142,20 @@ def like_comment():
         comment.likes += 1
         action = 'like'
         
+        # 通知评论作者 (如果不是自己点赞)
+        if str(comment.user_id) != str(user_id):
+            sender = User.query.get(user_id)
+            try:
+                create_notification(
+                    user_id=comment.user_id,
+                    sender_id=user_id,
+                    type='comment',
+                    content=f'{sender.username} 赞了你的评论',
+                    target_url=f'/video/{comment.video_id}'
+                )
+            except Exception as e:
+                print(f"Notification Error (Like Comment): {e}")
+        
     db.session.commit()
     return jsonify({'code': 200, 'msg': '操作成功', 'likes': comment.likes, 'action': action})
 
@@ -122,26 +183,6 @@ def pin_comment():
         
     db.session.commit()
     return jsonify({'code': 200, 'msg': '操作成功'})
-
-@interaction_bp.route('/danmaku', methods=['GET'])
-@swag_from('../docs/interaction/danmaku.yml') # <--- 修改
-def get_danmaku():
-    video_id = request.args.get('video_id')
-    danmakus = Danmaku.query.filter_by(video_id=video_id).all()
-    data = [{'text': d.content, 'time': d.time_point, 'color': d.color} for d in danmakus]
-    return jsonify({'code': 200, 'data': data})
-
-@interaction_bp.route('/danmaku/send', methods=['POST'])
-@swag_from('../docs/interaction/send_danmaku.yml') # <--- 修改
-def send_danmaku():
-    data = request.get_json()
-    new_dm = Danmaku(
-        content=data.get('text'), time_point=data.get('time'), color=data.get('color', '#ffffff'),
-        user_id=data.get('user_id'), video_id=data.get('video_id')
-    )
-    db.session.add(new_dm)
-    db.session.commit()
-    return jsonify({'code': 200, 'msg': '发送成功'})
 
 @interaction_bp.route('/check_status', methods=['GET'])
 @swag_from('../docs/interaction/check_status.yml') # <--- 修改
