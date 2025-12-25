@@ -67,11 +67,12 @@
 
 <script setup>
 import { computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '../store/user';
 import { VideoPlay, Odometer, Files, TrendCharts, MagicStick, Back } from '@element-plus/icons-vue';
 
 const route = useRoute();
+const router = useRouter();
 const userStore = useUserStore();
 
 const menuItems = [

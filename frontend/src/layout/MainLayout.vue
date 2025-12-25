@@ -66,7 +66,7 @@
           </div>
           <div class="nav-item" :class="{ active: $route.path === '/profile' }" @click="$router.push('/profile')">
             <el-icon><Collection /></el-icon>
-            <span>订阅内容</span>
+            <span>历史与收藏</span>
           </div>
         </div>
         <el-divider style="margin: 10px 0" />

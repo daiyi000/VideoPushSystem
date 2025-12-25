@@ -34,19 +34,6 @@
       </div>
 
       <el-tabs v-model="activeTab" @tab-click="handleTabClick" class="profile-tabs">
-        <el-tab-pane label="我的发布" name="videos">
-          <el-table :data="myVideos" style="width: 100%" empty-text="暂无视频">
-            <el-table-column prop="title" label="标题" />
-            <el-table-column prop="views" label="播放" width="100" />
-            <el-table-column prop="upload_time" label="发布时间" />
-            <el-table-column label="操作" width="100">
-              <template #default="scope">
-                <el-button type="danger" link @click="handleDelete(scope.row.id)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-tab-pane>
-
         <el-tab-pane label="历史记录" name="history">
           <div v-if="myHistory.length > 0" class="video-grid">
             <div v-for="video in myHistory" :key="video.id" class="video-card" @click="$router.push(`/video/${video.id}`)">
@@ -84,8 +71,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useUserStore } from '../store/user';
-import { getMyVideos, getMyFavs, getMyHistory, getProfile } from '../api/user'; // 【修改】引入 getProfile
-import { deleteVideo } from '../api/video';
+import { getMyFavs, getMyHistory, getProfile } from '../api/user'; // 【修改】引入 getProfile
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Trophy } from '@element-plus/icons-vue';
 import VerificationBadge from '../components/VerificationBadge.vue';
@@ -93,7 +79,6 @@ import VerificationBadge from '../components/VerificationBadge.vue';
 const userStore = useUserStore();
 const activeTab = ref('history'); 
 const userInfo = ref({ ...userStore.userInfo }); // 初始化先用缓存
-const myVideos = ref([]);
 const myFavs = ref([]);
 const myHistory = ref([]);
 
@@ -117,10 +102,7 @@ const loadData = async (tabName) => {
   const uid = userStore.userInfo.id;
   const tab = tabName || activeTab.value;
   
-  if (tab === 'videos') {
-    const res = await getMyVideos(uid);
-    myVideos.value = res.data.data;
-  } else if (tab === 'favs') {
+  if (tab === 'favs') {
     const res = await getMyFavs(uid);
     myFavs.value = res.data.data;
   } else if (tab === 'history') {
@@ -130,14 +112,6 @@ const loadData = async (tabName) => {
 };
 
 const handleTabClick = (ctx) => loadData(ctx.props.name);
-
-const handleDelete = (id) => {
-  ElMessageBox.confirm('删除视频？').then(async () => {
-    await deleteVideo(id);
-    ElMessage.success('已删除');
-    loadData('videos');
-  });
-};
 
 onMounted(() => {
   fetchLatestProfile(); // 【修改】挂载时立即刷新用户信息

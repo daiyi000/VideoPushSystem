@@ -281,7 +281,11 @@ const loadShorts = async () => {
       const initialId = route.params.id;
       if (!initialId || initialId === 'random') {
           if (videoList.value.length > 0) {
-              currentIndex.value = Math.floor(Math.random() * videoList.value.length);
+              const randomIdx = Math.floor(Math.random() * videoList.value.length);
+              const randomVideo = videoList.value[randomIdx];
+              videoList.value.splice(randomIdx, 1);
+              videoList.value.unshift(randomVideo);
+              currentIndex.value = 0;
               playCurrent();
           }
           return;
