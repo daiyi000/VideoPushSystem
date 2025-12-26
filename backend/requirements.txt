@@ -17,3 +17,5 @@ python-alipay-sdk>=3.0.0
 cryptography>=3.4.0
 python-dotenv
 gunicorn
+torch>=1.10.0
+tqdm

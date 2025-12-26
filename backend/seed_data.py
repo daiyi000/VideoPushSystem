@@ -3,6 +3,7 @@ from app import create_app, db
 # 引入所有相关模型
 from app.models import User, Video, ActionLog, Follow, Comment, Playlist, CommentLike, EmailCaptcha, playlist_video
 from datetime import datetime, timedelta
+from sqlalchemy import text
 
 app = create_app()
 
@@ -10,22 +11,25 @@ def seed():
     with app.app_context():
         print("正在清空旧数据...")
         
-        # 1. 清理数据 (严格顺序)
-        db.session.query(CommentLike).delete()
-        db.session.execute(playlist_video.delete())
+        # 1. 暴力清理数据 (禁用外键检查)
+        db.session.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
         
-        # 解除自关联
-        db.session.query(Comment).update({Comment.parent_id: None})
+        # 列出所有需要清空的表
+        tables = [
+            'action_logs', 'comment_likes', 'playlist_video', 'comments', 
+            'playlists', 'follows', 'email_captchas', 'videos', 'users',
+            'danmakus', 'notifications', 'notification_settings'
+        ]
+        
+        for table in tables:
+            try:
+                db.session.execute(text(f"TRUNCATE TABLE {table}"))
+            except Exception as e:
+                print(f"Warning: Failed to truncate {table}: {e}")
+
+        db.session.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
         db.session.commit()
-        
-    db.session.query(Comment).delete()
-    db.session.query(Follow).delete()
-        db.session.query(EmailCaptcha).delete()
-        db.session.query(Video).delete()
-        db.session.query(User).delete()
-        
-        db.session.commit()
-        print("✅ 旧数据已清空")
+        print("✅ 旧数据已清空 (强制模式)")
 
         # 2. 生成新数据
         print("1. 生成用户 (含管理员)...")

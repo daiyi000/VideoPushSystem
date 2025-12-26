@@ -303,22 +303,45 @@ const fetchData = async () => {
   try {
     if (queryQ) {
       const res = await getVideoList({ q: queryQ });
-      videoList.value = res.data.data;
+      // 兼容两种响应结构
+      const list = res.data.data ? res.data.data : (res.data.list ? res.data.list : res.data);
+      videoList.value = Array.isArray(list) ? list : [];
     } else {
       const uid = userStore.token ? userStore.userInfo.id : null;
       const res = await getRecommendVideos(uid); 
-      if (res.data.code === 200) {
-        const d = res.data.data;
-        if (d.categories && d.categories.length > 0) {
-          categories.value = d.categories;
-        } else {
-            categories.value = ['全部', '最近上传', '已观看']; 
-        }
-        discoverList.value = d.discover || [];
-        shortsList.value = d.shorts || [];
-        historyList.value = d.history || [];
-        console.log("历史记录数据调试:", historyList.value);
-        mixList.value = d.mix_content || [];
+      
+      // 【修复】适配新版后端接口格式 { list: [], source: '' }
+      // 注意：axios 返回的 res.data 才是后端响应体
+      const responseData = res.data; 
+      
+      // 尝试获取列表数据 (兼容旧版 {code:200, data: ...} 和新版 {list: ...})
+      let rawList = [];
+      if (responseData.list) {
+          rawList = responseData.list;
+      } else if (responseData.data && Array.isArray(responseData.data)) {
+          rawList = responseData.data;
+      } else if (responseData.code === 200 && responseData.data && responseData.data.discover) {
+          // 旧版复杂结构兼容
+          rawList = responseData.data.discover;
+      }
+
+      console.log('Backend Response:', responseData); // 调试用
+      console.log('Parsed List:', rawList);
+
+      if (rawList && rawList.length > 0) {
+        // 前端手动分桶
+        discoverList.value = rawList.filter(v => !v.is_short);
+        shortsList.value = rawList.filter(v => v.is_short);
+        
+        // 暂时留空，后续可加独立接口
+        historyList.value = []; 
+        mixList.value = []; 
+        
+        // 默认分类
+        categories.value = ['全部', '最近上传'];
+      } else {
+        discoverList.value = [];
+        shortsList.value = [];
       }
     }
   } catch (e) { console.error(e); } finally { loading.value = false; }

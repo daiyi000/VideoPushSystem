@@ -97,4 +97,8 @@ def create_app():
         from . import models 
         db.create_all()
         
+        # 在应用启动时加载召回模型
+        from app.services.recall_service import recall_service
+        recall_service.load_model()
+        
     return app
