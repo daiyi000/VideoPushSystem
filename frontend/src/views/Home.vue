@@ -337,8 +337,14 @@ const fetchData = async () => {
         historyList.value = []; 
         mixList.value = []; 
         
-        // 默认分类
-        categories.value = ['全部', '最近上传'];
+        // 【修复】恢复完整的分类列表
+        // 如果后端返回了 categories 则使用，否则使用默认全集
+        if (responseData.categories && responseData.categories.length > 0) {
+             categories.value = responseData.categories;
+        } else {
+             // 调整顺序：常规分类在前，功能性分类在后
+             categories.value = ['全部', '科技', '生活', '娱乐', '教育', '电影', '音乐', '游戏', '体育', '最近上传', '已观看'];
+        }
       } else {
         discoverList.value = [];
         shortsList.value = [];

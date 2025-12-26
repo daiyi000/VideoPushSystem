@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from sqlalchemy import func
 from app import db
 from app.models import ActionLog, Video
 from app.services.recall_service import recall_service
@@ -11,11 +12,34 @@ def home_recommend():
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 20, type=int)
 
+    # --- 动态分类逻辑 ---
+    base_categories = ['科技', '生活', '娱乐', '教育', '电影', '音乐', '游戏', '体育']
+    sorted_categories = base_categories.copy()
+
+    if user_id:
+        # 统计用户最近看的视频分类频率
+        # SELECT category, count(*) FROM action_logs JOIN videos ... GROUP BY category
+        cat_stats = db.session.query(Video.category, func.count(ActionLog.id))\
+            .join(ActionLog, ActionLog.video_id == Video.id)\
+            .filter(ActionLog.user_id == user_id)\
+            .group_by(Video.category)\
+            .order_by(func.count(ActionLog.id).desc())\
+            .limit(50).all()
+        
+        if cat_stats:
+            preferred_cats = [c[0] for c in cat_stats if c[0] in base_categories]
+            # 没看过��分类排在后面
+            remaining_cats = [c for c in base_categories if c not in preferred_cats]
+            sorted_categories = preferred_cats + remaining_cats
+            
+    final_categories = ['全部'] + sorted_categories + ['最近上传', '已观看']
+
     if not user_id:
-        # Fallback for anonymous users: return popular videos
+        # Fallback for anonymous users
         videos = Video.query.order_by(Video.views.desc()).limit(page_size).all()
         return jsonify({
             'list': [v.to_dict() for v in videos],
+            'categories': final_categories,
             'source': 'hot_fallback'
         })
     
@@ -77,6 +101,7 @@ def home_recommend():
 
     return jsonify({
         'list': [v.to_dict() for v in videos],
+        'categories': final_categories,
         'source': source
     })
 
